@@ -3,9 +3,12 @@ import { View, StyleSheet, Dimensions, Alert, ScrollView } from 'react-native';
 import { Card, Title, Paragraph, useTheme, Button } from 'react-native-paper';
 import { router } from 'expo-router';
 import { testApiConnection, getApiUrl } from './services/api';
+import { responsiveSize, lineHeight, layout } from '../src/utils/responsive';
 
 const { width, height } = Dimensions.get('window');
 const isTablet = width > 768;
+const isSmallScreen = width < 375;
+const isMobile = width < 768;
 
 export default function Dashboard() {
   const theme = useTheme();
@@ -67,13 +70,13 @@ export default function Dashboard() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.contentContainer}>
+      <View style={[styles.contentContainer, layout.flexible]}>
         <Title style={styles.title}>Visitor Management System</Title>
         <Paragraph style={styles.subtitle}>
           Manage visitor check-ins and check-outs efficiently
         </Paragraph>
         
-        <View style={styles.cardsContainer}>
+        <View style={[styles.cardsContainer, layout.grid]}>
           {navigationCards.map((card, index) => (
             <Card
               key={index}
@@ -95,6 +98,7 @@ export default function Dashboard() {
                   mode="contained"
                   onPress={() => router.push(card.route)}
                   style={[styles.cardButton, { backgroundColor: card.color }]}
+                  contentStyle={styles.cardButtonContent}
                 >
                   Open {card.title}
                 </Button>
@@ -113,60 +117,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   scrollContent: {
-    flexGrow: 1,
+    padding: responsiveSize.padding.large,
+    paddingBottom: isMobile ? 32 : 40,
+    width: '100%',
   },
   contentContainer: {
-    padding: isTablet ? 40 : 20,
-    maxWidth: isTablet ? 1000 : '100%',
+    padding: isTablet ? 40 : (isSmallScreen ? 12 : 16),
+    maxWidth: '100%',
     alignSelf: 'center',
     width: '100%',
   },
   title: {
-    fontSize: isTablet ? 36 : 28,
+    fontSize: responsiveSize.title,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: responsiveSize.margin.small,
+    lineHeight: lineHeight.title,
   },
   subtitle: {
-    fontSize: isTablet ? 18 : 16,
+    fontSize: responsiveSize.subtitle,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: isMobile ? 24 : 40,
     color: '#666',
+    lineHeight: lineHeight.subtitle,
+    paddingHorizontal: isMobile ? 8 : 0,
   },
   cardsContainer: {
-    flexDirection: isTablet ? 'row' : 'column',
-    gap: 20,
+    gap: responsiveSize.margin.large,
+    width: '100%',
   },
   card: {
-    flex: isTablet ? 1 : undefined,
-    marginBottom: isTablet ? 0 : 15,
-    borderRadius: 10,
+    marginBottom: 0,
+    borderRadius: 12,
     overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    width: '100%',
   },
   cardContent: {
-    padding: isTablet ? 30 : 20,
+    padding: isTablet ? 30 : (isSmallScreen ? 16 : 20),
   },
   cardHeader: {
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: responsiveSize.margin.large,
   },
   cardIcon: {
-    fontSize: isTablet ? 40 : 30,
-    marginBottom: 10,
+    fontSize: isTablet ? 40 : (isSmallScreen ? 28 : 30),
+    marginBottom: responsiveSize.margin.small,
   },
   cardTitle: {
-    fontSize: isTablet ? 20 : 18,
+    fontSize: isTablet ? 20 : (isSmallScreen ? 16 : 18),
     fontWeight: 'bold',
     textAlign: 'center',
+    lineHeight: lineHeight.body,
   },
   cardDescription: {
-    fontSize: isTablet ? 16 : 14,
+    fontSize: responsiveSize.body,
     textAlign: 'center',
     color: '#666',
-    marginBottom: 20,
+    marginBottom: responsiveSize.margin.large,
+    lineHeight: lineHeight.body,
   },
   cardButton: {
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: responsiveSize.padding.small,
+    width: '100%',
+  },
+  cardButtonContent: {
+    height: responsiveSize.buttonHeight,
   },
 }); 

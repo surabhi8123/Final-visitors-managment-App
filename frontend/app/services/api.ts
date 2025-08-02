@@ -1,6 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getApiBaseUrl, API_TIMEOUT, getApiHeaders, NETWORK_CONFIG } from '../config/api';
+import { getApiBaseUrl, API_TIMEOUT, getApiHeaders } from '../config/api';
 import {
   CheckInData,
   CheckOutData,
@@ -92,8 +92,62 @@ export const visitorAPI = {
   // Check in a new visitor
   checkIn: async (data: CheckInData): Promise<CheckInResponse> => {
     try {
-      const response = await api.post('/visitors/check_in/', data);
-      return response.data;
+      // If photo_data is provided, use FormData for multipart upload
+      if (data.photo_data) {
+        const formData = new FormData();
+        
+        // Add text fields
+        formData.append('name', data.name);
+        formData.append('email', data.email);
+        formData.append('phone', data.phone);
+        formData.append('purpose', data.purpose);
+        
+        // Convert base64 data URL to file object
+        const photoData = data.photo_data;
+        if (photoData.startsWith('data:image/')) {
+          // Extract base64 data from data URL
+          const base64Data = photoData.split(',')[1];
+          const mimeType = photoData.split(':')[1].split(';')[0];
+          const extension = mimeType.split('/')[1];
+          
+          // Create file name
+          const photoFileName = `visitor_photo_${Date.now()}.${extension}`;
+          
+          // Create file object from base64
+          const photoFile = {
+            uri: photoData,
+            type: mimeType,
+            name: photoFileName,
+          } as any;
+          
+          formData.append('photo', photoFile);
+        } else {
+          // If it's already a file URI, use it directly
+          const photoFileName = `visitor_photo_${Date.now()}.jpg`;
+          formData.append('photo', {
+            uri: photoData,
+            type: 'image/jpeg',
+            name: photoFileName,
+          } as any);
+        }
+        
+        console.log('Uploading photo with FormData:', {
+          name: data.name,
+          hasPhoto: !!data.photo_data,
+          photoType: data.photo_data?.startsWith('data:') ? 'base64' : 'file'
+        });
+        
+        const response = await api.post('/visitors/check_in/', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        return response.data;
+      } else {
+        // No photo, use regular JSON
+        const response = await api.post('/visitors/check_in/', data);
+        return response.data;
+      }
     } catch (error) {
       console.error('Check-in error:', error);
       throw error;
@@ -140,7 +194,7 @@ export const visitorAPI = {
     }
   },
 
-  // Export visit history
+  // Export visit history to CSV
   exportVisitHistory: async (filters?: VisitHistoryFilters): Promise<void> => {
     try {
       const params = new URLSearchParams();
@@ -154,8 +208,28 @@ export const visitorAPI = {
         responseType: 'blob',
       });
       
-      // Handle file download (you might want to use expo-file-system for this)
-      console.log('Export successful:', response.data);
+      // Check if we're in a browser environment
+      if (typeof window !== 'undefined' && window.URL && window.URL.createObjectURL) {
+        // Create a blob URL and trigger download
+        const blob = new Blob([response.data], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        
+        // Create a temporary link element and trigger download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `visit_history_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('CSV file downloaded successfully');
+      } else {
+        throw new Error('Browser download not supported in this environment');
+      }
+      
     } catch (error) {
       console.error('Export visit history error:', error);
       throw error;

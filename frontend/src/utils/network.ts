@@ -1,6 +1,4 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { getApiBaseUrl } from '../config/api';
+import { getApiBaseUrl } from '../../app/config/api';
 
 export interface NetworkStatus {
   isConnected: boolean;
@@ -74,11 +72,4 @@ export const isOnSameNetwork = async (): Promise<boolean> => {
   return true;
 };
 
-// Default export to satisfy Expo Router - this is a placeholder component
-export default function NetworkUtilsPlaceholder() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Network utilities module - not meant to be rendered</Text>
-    </View>
-  );
-} 
+// Network utility functions for the visitor management system 

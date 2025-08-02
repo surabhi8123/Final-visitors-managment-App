@@ -2,16 +2,27 @@ from rest_framework import serializers
 from .models import Visitor, Visit, VisitorPhoto
 import base64
 from django.core.files.base import ContentFile
+from django.conf import settings
 
 
 class VisitorPhotoSerializer(serializers.ModelSerializer):
     """Serializer for visitor photos."""
     image_data = serializers.CharField(write_only=True, required=False)
+    image_url = serializers.SerializerMethodField()
     
     class Meta:
         model = VisitorPhoto
-        fields = ['id', 'image', 'image_data', 'created_at']
+        fields = ['id', 'image', 'image_url', 'image_data', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+    def get_image_url(self, obj):
+        """Get the full URL for the image."""
+        if obj.image:
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
     def create(self, validated_data):
         image_data = validated_data.pop('image_data', None)
@@ -36,7 +47,7 @@ class VisitSerializer(serializers.ModelSerializer):
     duration_formatted = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     status = serializers.CharField(read_only=True)
-    photos = VisitorPhotoSerializer(many=True, read_only=True)
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
@@ -46,6 +57,11 @@ class VisitSerializer(serializers.ModelSerializer):
             'duration_formatted', 'is_active', 'status', 'photos'
         ]
         read_only_fields = ['id', 'check_in_time', 'check_out_time', 'duration_minutes']
+
+    def get_photos(self, obj):
+        """Get photos with proper context."""
+        photos = obj.photos.all()
+        return VisitorPhotoSerializer(photos, many=True, context=self.context).data
 
 
 class VisitorSerializer(serializers.ModelSerializer):
@@ -77,6 +93,7 @@ class CheckInSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
     purpose = serializers.CharField()
     host_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+    photo = serializers.ImageField(required=False, allow_null=True)
     photo_data = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, data):
@@ -113,11 +130,18 @@ class VisitHistorySerializer(serializers.ModelSerializer):
     visitor_email = serializers.CharField(source='visitor.email', read_only=True)
     visitor_phone = serializers.CharField(source='visitor.phone', read_only=True)
     duration_formatted = serializers.CharField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
     status = serializers.CharField(read_only=True)
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
         fields = [
             'id', 'visitor_name', 'visitor_email', 'visitor_phone',
-            'purpose', 'host_name', 'check_in_time', 'check_out_time', 'duration_formatted', 'status'
-        ] 
+            'purpose', 'host_name', 'check_in_time', 'check_out_time', 'duration_formatted', 'is_active', 'status', 'photos'
+        ]
+
+    def get_photos(self, obj):
+        """Get photos with proper context."""
+        photos = obj.photos.all()
+        return VisitorPhotoSerializer(photos, many=True, context=self.context).data 

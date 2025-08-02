@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+// Type definitions for the visitor management system
 
 export interface Visitor {
   id: string;
@@ -20,7 +19,6 @@ export interface Visit {
   visitor_email: string;
   visitor_phone: string;
   purpose: string;
-  host_name: string;
   check_in_time: string;
   check_out_time: string | null;
   duration_minutes: number | null;
@@ -33,6 +31,7 @@ export interface Visit {
 export interface VisitorPhoto {
   id: string;
   image: string;
+  image_url?: string;
   created_at: string;
 }
 
@@ -41,7 +40,6 @@ export interface CheckInData {
   email: string;
   phone: string;
   purpose: string;
-  host_name?: string;
   photo_data?: string;
 }
 
@@ -82,13 +80,4 @@ export interface VisitHistoryFilters {
   email?: string;
   date_from?: string;
   date_to?: string;
-}
-
-// Default export to satisfy Expo Router - this is a placeholder component
-export default function TypesPlaceholder() {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text>Types module - not meant to be rendered</Text>
-    </View>
-  );
 } 

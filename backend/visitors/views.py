@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.http import HttpResponse
 import csv
 from datetime import datetime
+from django.conf import settings
 
 from .models import Visitor, Visit, VisitorPhoto
 from .serializers import (
@@ -54,16 +55,20 @@ class VisitorViewSet(viewsets.ModelViewSet):
             )
             
             # Handle photo upload if provided
-            if data.get('photo_data'):
-                photo_serializer = VisitorPhotoSerializer(data={
-                    'visit': visit.id,
-                    'image_data': data['photo_data']
-                })
-                if photo_serializer.is_valid():
-                    photo_serializer.save()
+            photo_file = request.FILES.get('photo')
+            if photo_file:
+                # Create photo record
+                photo = VisitorPhoto.objects.create(
+                    visitor=visitor,
+                    visit=visit,
+                    image=photo_file
+                )
+                print(f"Photo saved: {photo.image.url}")
+                print(f"Photo path: {photo.image.path}")
+                print(f"Photo name: {photo.image.name}")
             
-            # Return visit details
-            visit_serializer = VisitSerializer(visit)
+            # Return visit details with photos
+            visit_serializer = VisitSerializer(visit, context={'request': request})
             return Response({
                 'message': 'Visitor checked in successfully',
                 'visit': visit_serializer.data,
@@ -101,7 +106,7 @@ class VisitorViewSet(viewsets.ModelViewSet):
     def active(self, request):
         """Get all currently active visitors."""
         active_visits = Visit.objects.filter(check_out_time__isnull=True)
-        serializer = VisitSerializer(active_visits, many=True)
+        serializer = VisitSerializer(active_visits, many=True, context={'request': request})
         return Response({
             'active_visitors': serializer.data,
             'count': active_visits.count()
@@ -133,7 +138,7 @@ class VisitorViewSet(viewsets.ModelViewSet):
         # Order by check-in time (newest first)
         visits = visits.order_by('-check_in_time')
         
-        serializer = VisitHistorySerializer(visits, many=True)
+        serializer = VisitHistorySerializer(visits, many=True, context={'request': request})
         return Response({
             'visits': serializer.data,
             'count': visits.count()
@@ -167,8 +172,8 @@ class VisitorViewSet(viewsets.ModelViewSet):
         
         writer = csv.writer(response)
         writer.writerow([
-            'Visitor Name', 'Email', 'Phone', 'Purpose', 'Check-in Time',
-            'Check-out Time', 'Duration (minutes)', 'Duration (formatted)'
+            'Visitor Name', 'Email', 'Phone', 'Purpose', 'Host Name', 'Status',
+            'Check-in Time', 'Check-out Time', 'Duration (minutes)', 'Duration (formatted)'
         ])
         
         for visit in visits:
@@ -177,6 +182,8 @@ class VisitorViewSet(viewsets.ModelViewSet):
                 visit.visitor.email,
                 visit.visitor.phone,
                 visit.purpose,
+                visit.host_name or 'N/A',
+                visit.status,
                 visit.check_in_time.strftime('%Y-%m-%d %H:%M:%S'),
                 visit.check_out_time.strftime('%Y-%m-%d %H:%M:%S') if visit.check_out_time else 'N/A',
                 visit.duration_minutes or 'N/A',
@@ -220,6 +227,36 @@ class VisitorViewSet(viewsets.ModelViewSet):
                 'found': False,
                 'message': 'No existing visitor found'
             })
+
+    @action(detail=False, methods=['get'])
+    def debug_photos(self, request):
+        """Debug endpoint to check photo storage and URLs."""
+        try:
+            # Get all photos
+            photos = VisitorPhoto.objects.all().order_by('-created_at')[:5]
+            photo_data = []
+            
+            for photo in photos:
+                photo_data.append({
+                    'id': str(photo.id),
+                    'visitor_name': photo.visitor.name,
+                    'visit_id': str(photo.visit.id),
+                    'image_name': photo.image.name,
+                    'image_url': photo.image.url,
+                    'full_url': request.build_absolute_uri(photo.image.url),
+                    'created_at': photo.created_at.isoformat(),
+                })
+            
+            return Response({
+                'total_photos': VisitorPhoto.objects.count(),
+                'recent_photos': photo_data,
+                'media_url': settings.MEDIA_URL,
+                'media_root': settings.MEDIA_ROOT,
+            })
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class VisitViewSet(viewsets.ModelViewSet):

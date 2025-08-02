@@ -8,6 +8,7 @@ import {
   Dimensions,
   Image,
   Text,
+  ScrollView,
 } from 'react-native';
 import {
   Card,
@@ -15,59 +16,67 @@ import {
   Paragraph,
   Button,
   TextInput,
-  ActivityIndicator,
   useTheme,
+  ActivityIndicator,
 } from 'react-native-paper';
 import { router } from 'expo-router';
 import { visitorAPI } from './services/api';
-import { Visit, VisitHistoryFilters } from '../src/types';
+import { Visit } from '../src/types';
+import { responsiveSize, shadows, containers, buttons, inputs } from '../src/utils/responsive';
+import { getApiBaseUrl } from './config/api';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const isTablet = width > 768;
+const isSmallScreen = width < 375;
+const isMobile = width < 768;
 
 export default function HistoryScreen() {
   const theme = useTheme();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filters, setFilters] = useState<VisitHistoryFilters>({});
   const [exporting, setExporting] = useState(false);
+  const [filters, setFilters] = useState({
+    name: '',
+    email: '',
+    date: '',
+  });
 
-  const fetchVisitHistory = async () => {
+  useEffect(() => {
+    loadVisitHistory();
+  }, []);
+
+  const loadVisitHistory = async () => {
     try {
-      const response = await visitorAPI.getVisitHistory(filters);
-      setVisits(response.visits);
+      setLoading(true);
+      const response = await visitorAPI.getVisitHistory();
+      setVisits(response.visits || []);
     } catch (error) {
-      console.error('Error fetching visit history:', error);
-      Alert.alert('Error', 'Failed to load visit history');
+      console.error('Error loading visit history:', error);
+      Alert.alert('Error', 'Failed to load visit history. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchVisitHistory();
-  }, [filters]);
-
-  const handleFilterChange = (field: keyof VisitHistoryFilters, value: string) => {
-    setFilters((prev: VisitHistoryFilters) => ({
-      ...prev,
-      [field]: value || undefined,
-    }));
-  };
-
-  const clearFilters = () => {
-    setFilters({});
-  };
-
-  const handleExport = async () => {
-    setExporting(true);
+  const exportHistory = async () => {
     try {
-      await visitorAPI.exportVisitHistory(filters);
-      Alert.alert('Success', 'Visit history exported successfully!');
+      setExporting(true);
+      // Pass current filters to export function
+      const exportFilters = {
+        name: filters.name || undefined,
+        email: filters.email || undefined,
+        date_from: filters.date || undefined,
+        date_to: filters.date || undefined,
+      };
+      
+      // Only pass filters if at least one is set
+      const hasFilters = Object.values(exportFilters).some(value => value !== undefined);
+      await visitorAPI.exportVisitHistory(hasFilters ? exportFilters : undefined);
+      Alert.alert('Success', 'Visit history CSV file has been downloaded to your device!');
     } catch (error) {
       console.error('Error exporting visit history:', error);
-      Alert.alert('Error', 'Failed to export visit history');
+      Alert.alert('Error', 'Failed to export visit history. Please try again.');
     } finally {
       setExporting(false);
     }
@@ -75,71 +84,122 @@ export default function HistoryScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchVisitHistory();
+    await loadVisitHistory();
     setRefreshing(false);
   };
 
+  const filteredVisits = visits.filter(visit => {
+    const nameMatch = visit.visitor_name.toLowerCase().includes(filters.name.toLowerCase());
+    const emailMatch = visit.visitor_email.toLowerCase().includes(filters.email.toLowerCase());
+    const dateMatch = !filters.date || visit.check_in_time.includes(filters.date);
+    return nameMatch && emailMatch && dateMatch;
+  });
+
+  // Helper function to get the correct image URL
+  const getImageUrl = (imagePath: string): string => {
+    if (!imagePath) return '';
+    
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // If it's a relative path, construct the full URL
+    const baseUrl = getApiBaseUrl().replace('/api', '');
+    return `${baseUrl}${imagePath}`;
+  };
+
+  // Helper function to render visitor photo
+  const renderVisitorPhoto = (visit: Visit) => {
+    if (visit.photos && visit.photos.length > 0) {
+      const photo = visit.photos[0];
+      
+      // Try to use image_url first (full URL from backend), then fallback to image field
+      const imageUrl = photo.image_url || getImageUrl(photo.image);
+      
+      if (imageUrl) {
+        return (
+          <Image 
+            source={{ uri: imageUrl }} 
+            style={styles.visitorPhoto}
+            resizeMode="cover"
+            onError={(error) => {
+              console.error('Error loading visitor photo:', error.nativeEvent.error);
+            }}
+          />
+        );
+      }
+    }
+    
+    // Fallback to placeholder with visitor's initial
+    return (
+      <View style={styles.placeholderPhoto}>
+        <Text style={styles.placeholderText}>
+          {visit.visitor_name.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
+
   const renderVisitItem = ({ item }: { item: Visit }) => (
-    <Card style={styles.visitCard}>
-      <Card.Content>
+    <Card style={[styles.visitCard, shadows.medium]}>
+      <Card.Content style={styles.cardContent}>
         <View style={styles.visitHeader}>
-          <View style={styles.visitInfo}>
+          {/* Visitor Info Section */}
+          <View style={styles.visitorSection}>
             <View style={styles.visitorHeader}>
-              {item.photos && item.photos.length > 0 ? (
-                <Image 
-                  source={{ uri: item.photos[0].image }} 
-                  style={styles.visitorPhoto}
-                />
-              ) : (
-                <View style={styles.placeholderPhoto}>
-                  <Title style={styles.placeholderText}>
-                    {item.visitor_name.charAt(0).toUpperCase()}
-                  </Title>
-                </View>
-              )}
+              {renderVisitorPhoto(item)}
               <View style={styles.visitorDetails}>
-                <Title style={styles.visitorName}>{item.visitor_name}</Title>
-                <Paragraph style={styles.visitorContact}>
+                <Text style={styles.visitorName} numberOfLines={2}>
+                  {item.visitor_name}
+                </Text>
+                <Text style={styles.visitorContact} numberOfLines={1}>
                   📧 {item.visitor_email}
-                </Paragraph>
-                <Paragraph style={styles.visitorContact}>
+                </Text>
+                <Text style={styles.visitorContact} numberOfLines={1}>
                   📞 {item.visitor_phone}
-                </Paragraph>
+                </Text>
               </View>
             </View>
             
-            <View style={styles.visitDetails}>
-              <Paragraph style={styles.visitPurpose}>
-                🎯 <Text style={styles.boldText}>Purpose:</Text> {item.purpose}
-              </Paragraph>
-              {item.host_name && (
-                <Paragraph style={styles.hostName}>
-                  👤 <Text style={styles.boldText}>Host:</Text> {item.host_name}
-                </Paragraph>
-              )}
+            <View style={styles.visitPurpose}>
+              <Text style={styles.purposeLabel}>🎯 Purpose:</Text>
+              <Text style={styles.purposeText} numberOfLines={3}>
+                {item.purpose}
+              </Text>
             </View>
           </View>
           
-          <View style={styles.visitTime}>
-            <View style={[
-              styles.statusBadge, 
-              { backgroundColor: item.status === 'Checked In' ? '#4caf50' : '#ff9800' }
-            ]}>
-              <Paragraph style={styles.statusText}>
-                {item.status}
-              </Paragraph>
+          {/* Visit Time Section */}
+          <View style={styles.visitTimeSection}>
+            <View style={[styles.statusBadge, { backgroundColor: item.is_active ? '#4caf50' : '#ff9800' }]}>
+              <Text style={styles.statusText}>
+                {item.is_active ? 'Checked In' : 'Checked Out'}
+              </Text>
             </View>
-            <Paragraph style={styles.checkInTime}>
-              <Text style={styles.boldText}>Check-in:</Text> {new Date(item.check_in_time).toLocaleString()}
-            </Paragraph>
+            
+            <View style={styles.timeInfo}>
+              <Text style={styles.timeLabel}>Check-in:</Text>
+              <Text style={styles.timeValue} numberOfLines={1}>
+                {new Date(item.check_in_time).toLocaleString()}
+              </Text>
+            </View>
+            
             {item.check_out_time && (
-              <Paragraph style={styles.checkOutTime}>
-                <Text style={styles.boldText}>Check-out:</Text> {new Date(item.check_out_time).toLocaleString()}
-              </Paragraph>
+              <View style={styles.timeInfo}>
+                <Text style={styles.timeLabel}>Check-out:</Text>
+                <Text style={styles.timeValue} numberOfLines={1}>
+                  {new Date(item.check_out_time).toLocaleString()}
+                </Text>
+              </View>
             )}
-            <Paragraph style={styles.duration}>
-              <Text style={styles.boldText}>Duration:</Text> {item.duration_formatted}
-            </Paragraph>
+            
+            <View style={styles.timeInfo}>
+              <Text style={styles.timeLabel}>Duration:</Text>
+              <Text style={styles.timeValue} numberOfLines={1}>
+                {item.duration_formatted}
+              </Text>
+            </View>
           </View>
         </View>
       </Card.Content>
@@ -149,130 +209,136 @@ export default function HistoryScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.contentContainer}>
-        <Title style={styles.title}>Visit History</Title>
-        <Paragraph style={styles.subtitle}>
-          Complete record of all visits ({visits.length} total)
-        </Paragraph>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.contentContainer}>
+          <Title style={styles.title}>Visit History</Title>
+          <Paragraph style={styles.subtitle}>
+            View and manage all visitor check-ins and check-outs
+          </Paragraph>
 
-        <Card style={styles.filtersCard}>
-          <Card.Content>
-            <Title style={styles.filtersTitle}>Search & Filter</Title>
-            
-            <View style={styles.filtersRow}>
-              <TextInput
-                label="Name"
-                value={filters.name || ''}
-                onChangeText={(text) => handleFilterChange('name', text)}
-                style={[styles.filterInput, styles.halfInput]}
-                mode="outlined"
-              />
-              <TextInput
-                label="Email"
-                value={filters.email || ''}
-                onChangeText={(text) => handleFilterChange('email', text)}
-                style={[styles.filterInput, styles.halfInput]}
-                mode="outlined"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.filtersRow}>
-              <TextInput
-                label="Phone"
-                value={filters.phone || ''}
-                onChangeText={(text) => handleFilterChange('phone', text)}
-                style={[styles.filterInput, styles.halfInput]}
-                mode="outlined"
-                keyboardType="phone-pad"
-              />
-              <TextInput
-                label="Date From (YYYY-MM-DD)"
-                value={filters.date_from || ''}
-                onChangeText={(text) => handleFilterChange('date_from', text)}
-                style={[styles.filterInput, styles.halfInput]}
-                mode="outlined"
-                placeholder="2024-01-01"
-              />
-            </View>
-
-            <View style={styles.filtersRow}>
-              <TextInput
-                label="Date To (YYYY-MM-DD)"
-                value={filters.date_to || ''}
-                onChangeText={(text) => handleFilterChange('date_to', text)}
-                style={[styles.filterInput, styles.halfInput]}
-                mode="outlined"
-                placeholder="2024-12-31"
-              />
-              <View style={[styles.filterInput, styles.halfInput]} />
-            </View>
-
-            <View style={styles.filterButtons}>
-              <Button
-                mode="outlined"
-                onPress={clearFilters}
-                style={styles.filterButton}
-              >
-                Clear Filters
-              </Button>
-              <Button
-                mode="contained"
-                onPress={handleExport}
-                loading={exporting}
-                disabled={exporting}
-                style={styles.filterButton}
-              >
-                Export CSV
-              </Button>
-            </View>
-          </Card.Content>
-        </Card>
-
-        {visits.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Card.Content>
-              <Title style={styles.emptyTitle}>No Visits Found</Title>
-              <Paragraph style={styles.emptyDescription}>
-                No visits match your current filters.
-              </Paragraph>
+          {/* Filters Card */}
+          <Card style={[styles.filtersCard, shadows.medium]}>
+            <Card.Content style={styles.filtersCardContent}>
+              <Title style={styles.filtersTitle}>Filter Visits</Title>
+              
+              <View style={styles.filtersRow}>
+                <TextInput
+                  label="Search by Name"
+                  value={filters.name}
+                  onChangeText={(text) => setFilters(prev => ({ ...prev, name: text }))}
+                  style={styles.filterInput}
+                  mode="outlined"
+                  dense={isMobile}
+                  placeholder="Enter visitor name..."
+                />
+              </View>
+              
+              <View style={styles.filtersRow}>
+                <TextInput
+                  label="Search by Email"
+                  value={filters.email}
+                  onChangeText={(text) => setFilters(prev => ({ ...prev, email: text }))}
+                  style={styles.filterInput}
+                  mode="outlined"
+                  dense={isMobile}
+                  placeholder="Enter email address..."
+                />
+              </View>
+              
+              <View style={styles.filtersRow}>
+                <TextInput
+                  label="Search by Date"
+                  value={filters.date}
+                  onChangeText={(text) => setFilters(prev => ({ ...prev, date: text }))}
+                  style={styles.filterInput}
+                  mode="outlined"
+                  dense={isMobile}
+                  placeholder="YYYY-MM-DD"
+                />
+              </View>
+              
+              <View style={styles.filterButtons}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setFilters({ name: '', email: '', date: '' })}
+                  style={[styles.filterButton, buttons.secondary]}
+                  contentStyle={buttons.content}
+                >
+                  Clear Filters
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={exportHistory}
+                  loading={exporting}
+                  disabled={exporting}
+                  style={[styles.filterButton, buttons.primary]}
+                  contentStyle={buttons.content}
+                >
+                  Export History
+                </Button>
+              </View>
             </Card.Content>
           </Card>
-        ) : (
-          <FlatList
-            data={visits}
-            renderItem={renderVisitItem}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
+
+          {/* Results */}
+          {filteredVisits.length === 0 ? (
+            <Card style={[styles.emptyCard, shadows.small]}>
+              <Card.Content style={styles.emptyCardContent}>
+                <Title style={styles.emptyTitle}>No Visits Found</Title>
+                <Paragraph style={styles.emptyDescription}>
+                  {visits.length === 0 
+                    ? 'No visits have been recorded yet.' 
+                    : 'No visits match your current filters. Try adjusting your search criteria.'
+                  }
+                </Paragraph>
+              </Card.Content>
+            </Card>
+          ) : (
+            <View style={styles.listContainer}>
+              {filteredVisits.map((visit) => (
+                <View key={visit.id}>
+                  {renderVisitItem({ item: visit })}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+      
+      {/* Pull to refresh */}
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        style={styles.refreshControl}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    ...containers.main,
+  },
+  scrollView: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   contentContainer: {
-    padding: isTablet ? 40 : 20,
-    maxWidth: isTablet ? 1000 : '100%',
-    alignSelf: 'center',
-    width: '100%',
+    ...containers.content,
+    padding: responsiveSize.padding.large,
   },
   loadingContainer: {
     flex: 1,
@@ -280,146 +346,166 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: isTablet ? 32 : 24,
+    fontSize: responsiveSize.title,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: responsiveSize.margin.medium,
+    textAlign: 'center',
+    lineHeight: isTablet ? 40 : (isSmallScreen ? 26 : 30),
   },
   subtitle: {
-    fontSize: isTablet ? 18 : 16,
-    marginBottom: 20,
+    fontSize: responsiveSize.subtitle,
+    marginBottom: responsiveSize.margin.large,
+    textAlign: 'center',
     color: '#666',
+    lineHeight: isTablet ? 24 : (isSmallScreen ? 20 : 22),
   },
   filtersCard: {
-    marginBottom: 20,
+    marginBottom: responsiveSize.margin.large,
+    borderRadius: responsiveSize.cardRadius,
+  },
+  filtersCardContent: {
+    padding: responsiveSize.padding.large,
   },
   filtersTitle: {
-    fontSize: isTablet ? 20 : 18,
-    marginBottom: 15,
+    fontSize: responsiveSize.subtitle,
+    marginBottom: responsiveSize.margin.large,
+    fontWeight: 'bold',
+    lineHeight: isTablet ? 26 : (isSmallScreen ? 22 : 24),
   },
   filtersRow: {
-    flexDirection: isTablet ? 'row' : 'column',
-    gap: 15,
-    marginBottom: 15,
+    marginBottom: responsiveSize.margin.medium,
   },
   filterInput: {
-    marginBottom: 0,
-  },
-  halfInput: {
-    flex: isTablet ? 1 : undefined,
+    ...inputs.text,
   },
   filterButtons: {
-    flexDirection: isTablet ? 'row' : 'column',
-    gap: 10,
+    gap: responsiveSize.margin.medium,
+    marginTop: responsiveSize.margin.medium,
   },
   filterButton: {
-    flex: isTablet ? 1 : undefined,
-  },
-  emptyCard: {
-    marginTop: 40,
-  },
-  emptyTitle: {
-    fontSize: isTablet ? 20 : 18,
-    textAlign: 'center',
-  },
-  emptyDescription: {
-    fontSize: isTablet ? 16 : 14,
-    textAlign: 'center',
-    color: '#666',
+    width: '100%',
   },
   listContainer: {
-    paddingBottom: 20,
+    paddingBottom: responsiveSize.padding.xlarge,
   },
   visitCard: {
-    marginBottom: 15,
+    marginBottom: responsiveSize.margin.medium,
+    borderRadius: responsiveSize.cardRadius,
+    overflow: 'hidden',
+  },
+  cardContent: {
+    padding: responsiveSize.padding.large,
   },
   visitHeader: {
-    flexDirection: isTablet ? 'row' : 'column',
-    justifyContent: 'space-between',
+    gap: responsiveSize.margin.large,
   },
-  visitInfo: {
-    flex: isTablet ? 1 : undefined,
+  visitorSection: {
+    gap: responsiveSize.margin.medium,
   },
   visitorHeader: {
-    flexDirection: isTablet ? 'row' : 'column',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    gap: responsiveSize.margin.medium,
   },
   visitorPhoto: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 15,
+    width: Math.min(isTablet ? 60 : (isSmallScreen ? 44 : 50), width * 0.12),
+    height: Math.min(isTablet ? 60 : (isSmallScreen ? 44 : 50), width * 0.12),
+    borderRadius: Math.min(isTablet ? 30 : (isSmallScreen ? 22 : 25), width * 0.06),
     backgroundColor: '#e0e0e0',
   },
   placeholderPhoto: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: Math.min(isTablet ? 60 : (isSmallScreen ? 44 : 50), width * 0.12),
+    height: Math.min(isTablet ? 60 : (isSmallScreen ? 44 : 50), width * 0.12),
+    borderRadius: Math.min(isTablet ? 30 : (isSmallScreen ? 22 : 25), width * 0.06),
     backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: 24,
-    color: '#888',
+    color: '#666',
+    fontSize: responsiveSize.body,
+    fontWeight: 'bold',
   },
   visitorDetails: {
     flex: 1,
+    gap: responsiveSize.margin.small,
   },
   visitorName: {
-    fontSize: isTablet ? 20 : 18,
+    fontSize: responsiveSize.subtitle,
     fontWeight: 'bold',
-    marginBottom: 5,
+    lineHeight: isTablet ? 26 : (isSmallScreen ? 22 : 24),
   },
   visitorContact: {
-    fontSize: isTablet ? 16 : 14,
-    marginBottom: 2,
-  },
-  visitDetails: {
-    marginTop: 10,
+    fontSize: responsiveSize.body,
+    color: '#666',
+    lineHeight: isTablet ? 22 : (isSmallScreen ? 18 : 20),
   },
   visitPurpose: {
-    fontSize: isTablet ? 16 : 14,
-    fontStyle: 'italic',
-    marginTop: 5,
+    gap: responsiveSize.margin.small,
   },
-  hostName: {
-    fontSize: isTablet ? 16 : 14,
-    fontStyle: 'italic',
-    marginTop: 5,
-  },
-  boldText: {
+  purposeLabel: {
+    fontSize: responsiveSize.body,
     fontWeight: 'bold',
+    color: '#333',
   },
-  visitTime: {
-    flex: isTablet ? 0.5 : undefined,
-    alignItems: isTablet ? 'flex-end' : 'flex-start',
-    marginTop: isTablet ? 0 : 10,
+  purposeText: {
+    fontSize: responsiveSize.body,
+    fontStyle: 'italic',
+    color: '#666',
+    lineHeight: isTablet ? 22 : (isSmallScreen ? 18 : 20),
+  },
+  visitTimeSection: {
+    gap: responsiveSize.margin.medium,
   },
   statusBadge: {
-    borderRadius: 10,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingVertical: responsiveSize.padding.small,
+    paddingHorizontal: responsiveSize.padding.medium,
+    borderRadius: 6,
     alignSelf: 'flex-start',
-    marginBottom: 10,
   },
   statusText: {
-    fontSize: isTablet ? 14 : 12,
-    fontWeight: 'bold',
     color: 'white',
+    fontSize: responsiveSize.body,
+    fontWeight: 'bold',
+    lineHeight: isTablet ? 22 : (isSmallScreen ? 18 : 20),
   },
-  checkInTime: {
-    fontSize: isTablet ? 16 : 14,
-    color: '#666',
+  timeInfo: {
+    gap: responsiveSize.margin.small,
   },
-  checkOutTime: {
-    fontSize: isTablet ? 16 : 14,
-    color: '#666',
-    marginTop: 2,
+  timeLabel: {
+    fontSize: responsiveSize.body,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  duration: {
-    fontSize: isTablet ? 16 : 14,
+  timeValue: {
+    fontSize: responsiveSize.body,
     color: '#666',
-    marginTop: 2,
+    lineHeight: isTablet ? 22 : (isSmallScreen ? 18 : 20),
+  },
+  emptyCard: {
+    marginTop: responsiveSize.margin.xlarge,
+    borderRadius: responsiveSize.cardRadius,
+  },
+  emptyCardContent: {
+    padding: responsiveSize.padding.large,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: responsiveSize.subtitle,
+    textAlign: 'center',
+    lineHeight: isTablet ? 26 : (isSmallScreen ? 22 : 24),
+    marginBottom: responsiveSize.margin.medium,
+  },
+  emptyDescription: {
+    fontSize: responsiveSize.body,
+    textAlign: 'center',
+    color: '#666',
+    lineHeight: isTablet ? 22 : (isSmallScreen ? 18 : 20),
+  },
+  refreshControl: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
 }); 

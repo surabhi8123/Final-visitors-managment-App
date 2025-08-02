@@ -3,7 +3,7 @@
     "name": "Visitor Management System",
     "slug": "visitor-management",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "portrait",
     "scheme": "visitormanagement",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,8 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.visitormanagement.app"
+      "bundleIdentifier": "com.visitormanagement.app",
+      "requireFullScreen": true
     },
     "android": {
       "adaptiveIcon": {
@@ -29,10 +30,12 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "screenOrientation": "portrait"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "viewport": "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
     },
     "plugins": [
       "expo-router",

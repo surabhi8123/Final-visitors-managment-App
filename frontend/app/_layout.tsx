@@ -2,6 +2,11 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
+import { Dimensions } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const isTablet = width > 768;
+const isMobile = width < 768;
 
 const theme = {
   ...MD3LightTheme,
@@ -25,15 +30,27 @@ export default function RootLayout() {
           headerTintColor: '#fff',
           headerTitleStyle: {
             fontWeight: 'bold',
+            fontSize: isMobile ? 18 : 20,
           },
-          headerLargeTitle: true,
+          headerLargeTitle: isTablet,
+          headerLargeTitleStyle: {
+            fontSize: isTablet ? 32 : 24,
+          },
+          headerLargeTitleShadowVisible: false,
+          headerShadowVisible: false,
+          contentStyle: {
+            backgroundColor: '#f5f5f5',
+          },
         }}
       >
         <Stack.Screen
           name="index"
           options={{
             title: 'Visitor Management',
-            headerLargeTitle: true,
+            headerLargeTitle: isTablet,
+            headerLargeTitleStyle: {
+              fontSize: isTablet ? 32 : 24,
+            },
           }}
         />
         <Stack.Screen
@@ -41,18 +58,30 @@ export default function RootLayout() {
           options={{
             title: 'Check In Visitor',
             presentation: 'modal',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+              fontSize: isMobile ? 16 : 18,
+            },
           }}
         />
         <Stack.Screen
           name="active-visitors"
           options={{
             title: 'Active Visitors',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+              fontSize: isMobile ? 16 : 18,
+            },
           }}
         />
         <Stack.Screen
           name="history"
           options={{
             title: 'Visit History',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+              fontSize: isMobile ? 16 : 18,
+            },
           }}
         />
       </Stack>
