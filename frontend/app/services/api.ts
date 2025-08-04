@@ -1,6 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getApiBaseUrl, API_TIMEOUT, getApiHeaders } from '../config/api';
+import { getApiBaseUrl, API_TIMEOUT, getApiHeaders, getAlternativeUrls } from '../config/api';
 import {
   CheckInData,
   CheckOutData,
@@ -22,8 +22,8 @@ const api = axios.create({
 // Request interceptor to add auth token if available
 api.interceptors.request.use(
   async (config: any) => {
-    console.log('API Request:', config.method?.toUpperCase(), config.url);
-    console.log('API Base URL:', getApiBaseUrl());
+    console.log('🌐 API Request:', config.method?.toUpperCase(), config.url);
+    console.log('📍 API Base URL:', getApiBaseUrl());
     
     const token = await AsyncStorage.getItem('auth_token');
     if (token) {
@@ -32,7 +32,7 @@ api.interceptors.request.use(
     return config;
   },
   (error: any) => {
-    console.error('API Request Error:', error);
+    console.error('❌ API Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -40,11 +40,11 @@ api.interceptors.request.use(
 // Response interceptor for error handling
 api.interceptors.response.use(
   (response: any) => {
-    console.log('API Response:', response.status, response.config.url);
+    console.log('✅ API Response:', response.status, response.config.url);
     return response;
   },
   async (error: any) => {
-    console.error('API Response Error:', {
+    console.error('❌ API Response Error:', {
       message: error.message,
       code: error.code,
       status: error.response?.status,
@@ -52,22 +52,22 @@ api.interceptors.response.use(
     });
 
     if (error.code === 'ECONNABORTED') {
-      console.error('API Timeout Error:', error.message);
+      console.error('⏰ API Timeout Error:', error.message);
       return Promise.reject(new Error('Request timeout. Please check your connection and try again.'));
     }
     
     if (error.code === 'ERR_NETWORK') {
-      console.error('Network Error:', error.message);
-      return Promise.reject(new Error('Network error. Please check your internet connection and ensure the backend server is running.'));
+      console.error('🌐 Network Error:', error.message);
+      return Promise.reject(new Error('Network error. Please check your internet connection and ensure the backend server is running on http://192.168.1.19:8000'));
     }
     
     if (error.response) {
       // Server responded with error status
-      console.error('API Error:', error.response.status, error.response.data);
+      console.error('🔴 API Error:', error.response.status, error.response.data);
       return Promise.reject(new Error(error.response.data?.message || `Server error: ${error.response.status}`));
     }
     
-    console.error('API Error:', error.message);
+    console.error('❓ API Error:', error.message);
     return Promise.reject(error);
   }
 );
@@ -75,16 +75,55 @@ api.interceptors.response.use(
 // Utility function to get the correct API URL
 export const getApiUrl = () => getApiBaseUrl();
 
-// Utility function to test API connectivity
-export const testApiConnection = async (): Promise<boolean> => {
-  try {
-    console.log('Testing API connection to:', getApiBaseUrl());
-    const response = await api.get('/visitors/active/', { timeout: 5000 });
-    console.log('API connection test successful:', response.status);
-    return true;
-  } catch (error) {
-    console.error('API connection test failed:', error);
-    return false;
+// Enhanced connection test with multiple URL attempts
+export const testApiConnection = async (): Promise<{ success: boolean; workingUrl?: string; error?: string }> => {
+  const urls = [getApiBaseUrl(), ...getAlternativeUrls()];
+  
+  for (const url of urls) {
+    try {
+      console.log('🔍 Testing API connection to:', url);
+      
+      const testApi = axios.create({
+        baseURL: url,
+        headers: getApiHeaders(),
+        timeout: 5000,
+      });
+      
+      const response = await testApi.get('/visitors/active/');
+      console.log('✅ API connection successful:', url, response.status);
+      
+      return { success: true, workingUrl: url };
+    } catch (error: any) {
+      console.log('❌ Failed to connect to:', url, error.message);
+      continue;
+    }
+  }
+  
+  const errorMsg = 'Failed to connect to any API endpoint. Please check:\n1. Backend server is running\n2. Mobile device is on same WiFi\n3. Firewall allows connections to port 8000';
+  console.error('❌ All API connection attempts failed');
+  return { success: false, error: errorMsg };
+};
+
+// Test connection and log detailed info
+export const debugApiConnection = async (): Promise<void> => {
+  console.log('🔍 Debugging API connection...');
+  console.log('📍 Current API Base URL:', getApiBaseUrl());
+  console.log('🔧 API Headers:', getApiHeaders());
+  console.log('⏱️ API Timeout:', API_TIMEOUT);
+  
+  const result = await testApiConnection();
+  
+  if (result.success) {
+    console.log('🎉 Backend connection is working!');
+    console.log('✅ Working URL:', result.workingUrl);
+  } else {
+    console.log('❌ Backend connection failed!');
+    console.log('💡 Troubleshooting tips:');
+    console.log('   1. Make sure backend is running: python start_server.py');
+    console.log('   2. Check if backend is accessible at: http://192.168.1.19:8000');
+    console.log('   3. Verify mobile device is on same WiFi network');
+    console.log('   4. Check firewall settings on your computer');
+    console.log('   5. Try using your computer\'s actual IP address');
   }
 };
 
@@ -131,7 +170,7 @@ export const visitorAPI = {
           } as any);
         }
         
-        console.log('Uploading photo with FormData:', {
+        console.log('📸 Uploading photo with FormData:', {
           name: data.name,
           hasPhoto: !!data.photo_data,
           photoType: data.photo_data?.startsWith('data:') ? 'base64' : 'file'
@@ -149,7 +188,7 @@ export const visitorAPI = {
         return response.data;
       }
     } catch (error) {
-      console.error('Check-in error:', error);
+      console.error('❌ Check-in error:', error);
       throw error;
     }
   },
@@ -160,7 +199,7 @@ export const visitorAPI = {
       const response = await api.post('/visitors/check_out/', data);
       return response.data;
     } catch (error) {
-      console.error('Check-out error:', error);
+      console.error('❌ Check-out error:', error);
       throw error;
     }
   },
@@ -171,7 +210,7 @@ export const visitorAPI = {
       const response = await api.get('/visitors/active/');
       return response.data;
     } catch (error) {
-      console.error('Get active visitors error:', error);
+      console.error('❌ Get active visitors error:', error);
       throw error;
     }
   },
@@ -189,13 +228,13 @@ export const visitorAPI = {
       const response = await api.get(`/visitors/history/?${params.toString()}`);
       return response.data;
     } catch (error) {
-      console.error('Get visit history error:', error);
+      console.error('❌ Get visit history error:', error);
       throw error;
     }
   },
 
-  // Export visit history to CSV
-  exportVisitHistory: async (filters?: VisitHistoryFilters): Promise<void> => {
+  // Export visit history to Excel
+  exportVisitHistory: async (filters?: VisitHistoryFilters): Promise<{ message: string; filename: string; data: string; count: number }> => {
     try {
       const params = new URLSearchParams();
       if (filters) {
@@ -204,34 +243,13 @@ export const visitorAPI = {
         });
       }
       
-      const response = await api.get(`/visitors/export/?${params.toString()}`, {
-        responseType: 'blob',
-      });
+      const response = await api.get(`/visitors/export/?${params.toString()}`);
       
-      // Check if we're in a browser environment
-      if (typeof window !== 'undefined' && window.URL && window.URL.createObjectURL) {
-        // Create a blob URL and trigger download
-        const blob = new Blob([response.data], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        
-        // Create a temporary link element and trigger download
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `visit_history_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        console.log('CSV file downloaded successfully');
-      } else {
-        throw new Error('Browser download not supported in this environment');
-      }
+      // Return the response data which contains Excel data
+      return response.data;
       
     } catch (error) {
-      console.error('Export visit history error:', error);
+      console.error('❌ Export visit history error:', error);
       throw error;
     }
   },
@@ -246,7 +264,7 @@ export const visitorAPI = {
       const response = await api.get(`/visitors/search/?${params.toString()}`);
       return response.data;
     } catch (error) {
-      console.error('Search visitor error:', error);
+      console.error('❌ Search visitor error:', error);
       throw error;
     }
   },

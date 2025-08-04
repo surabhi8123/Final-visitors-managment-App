@@ -67,7 +67,7 @@ class VisitSerializer(serializers.ModelSerializer):
 class VisitorSerializer(serializers.ModelSerializer):
     """Serializer for visitor information."""
     total_visits = serializers.IntegerField(read_only=True)
-    last_visit = serializers.DateTimeField(read_only=True)
+    last_visit = serializers.SerializerMethodField()
     active_visit = serializers.SerializerMethodField()
 
     class Meta:
@@ -78,11 +78,18 @@ class VisitorSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def get_last_visit(self, obj):
+        """Get the last visit datetime for this visitor."""
+        last_visit = obj.visits.order_by('-check_in_time').first()
+        if last_visit:
+            return last_visit.check_in_time
+        return None
+
     def get_active_visit(self, obj):
         """Get the active visit for this visitor."""
         active_visit = obj.visits.filter(check_out_time__isnull=True).first()
         if active_visit:
-            return VisitSerializer(active_visit).data
+            return VisitSerializer(active_visit, context=self.context).data
         return None
 
 

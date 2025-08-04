@@ -15,7 +15,8 @@ SECRET_KEY = config('SECRET_KEY', default='7c42b91109e6bf35d04fcf5be4b9607080e0b
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.38', '0.0.0.0']
+# Allow connections from any IP (for mobile development)
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.19', '0.0.0.0', '*', '10.0.2.2']
 
 # Application definition
 INSTALLED_APPS = [
@@ -103,18 +104,21 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS settings
+# CORS settings - allow all origins for development
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:19006",
     "http://127.0.0.1:19006",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.38:19006",
-    "http://192.168.1.38:8081",
-    "http://192.168.1.38:3000",
+            "http://192.168.1.19:19006",
+        "http://192.168.1.19:8081",
+        "http://192.168.1.19:3000",
     "http://localhost:8081",
     "http://127.0.0.1:8081",
+            "http://192.168.1.19:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
@@ -126,6 +130,10 @@ CORS_ALLOW_METHODS = [
     'POST',
     'PUT',
 ]
+
+# Additional CORS settings for mobile development
+CORS_ALLOW_PRIVATE_NETWORK = True
+CORS_EXPOSE_HEADERS = ['*']
 
 # REST Framework settings
 REST_FRAMEWORK = {

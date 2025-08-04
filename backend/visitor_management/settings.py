@@ -15,7 +15,7 @@ SECRET_KEY = config('SECRET_KEY', default='7c42b91109e6bf35d04fcf5be4b9607080e0b
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.38', '0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.19', '0.0.0.0']
 
 # Application definition
 INSTALLED_APPS = [
@@ -47,7 +47,7 @@ ROOT_URLCONF = 'visitor_management.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -67,12 +67,8 @@ WSGI_APPLICATION = 'visitor_management.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='visitor_management'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='postgres123'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5433'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -124,9 +120,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:19006",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://192.168.1.38:19006",
-    "http://192.168.1.38:8081",
-    "http://192.168.1.38:3000",
+            "http://192.168.1.19:19006",
+        "http://192.168.1.19:8081",
+        "http://192.168.1.19:3000",
+    "http://192.168.1.19:19006",
+    "http://192.168.1.19:8081",
+    "http://192.168.1.19:3000",
     "http://localhost:8081",
     "http://127.0.0.1:8081",
 ]

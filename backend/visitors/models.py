@@ -88,4 +88,20 @@ class VisitorPhoto(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Photo of {self.visitor.name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}" 
+        return f"Photo of {self.visitor.name} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class CustomAdmin(models.Model):
+    """Custom admin model for ThorSignia admin login."""
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)  # In production, this should be hashed
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_login = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Custom Admin"
+        verbose_name_plural = "Custom Admins"
+
+    def __str__(self):
+        return f"Admin: {self.email}" 
