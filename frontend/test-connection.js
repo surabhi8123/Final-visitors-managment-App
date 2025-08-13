@@ -1,7 +1,7 @@
 // Simple test script to verify backend connection
 const axios = require('axios');
 
-const API_BASE_URL = 'http://192.168.1.19:8000/api';
+const API_BASE_URL = 'http://192.168.1.33:8000/api';
 
 async function testBackendConnection() {
   try {
@@ -9,7 +9,7 @@ async function testBackendConnection() {
     console.log('API Base URL:', API_BASE_URL);
     
     // Test the home endpoint
-    const homeResponse = await axios.get('http://192.168.1.19:8000/');
+    const homeResponse = await axios.get(API_BASE_URL.replace('/api', ''));
     console.log('✅ Home endpoint accessible:', homeResponse.status);
     
     // Test the API active visitors endpoint

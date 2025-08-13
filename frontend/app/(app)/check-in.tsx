@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Text,
 } from 'react-native';
 import {
   useTheme,
@@ -15,6 +16,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { visitorAPI } from '../services/api';
+import SignaturePad from '../../src/components/SignaturePad';
 import { colors, spacing, borderRadius, shadows, responsive } from '../../src/theme';
 import { 
   LoadingView, 
@@ -34,6 +36,7 @@ interface CheckInForm {
   phone: string;
   purpose: string;
   photo_data?: string;
+  signature_data?: string;
 }
 
 export default function CheckInScreen() {
@@ -99,28 +102,28 @@ export default function CheckInScreen() {
         formData.phone.trim() || undefined
       );
 
-              if (response.found && response.visitor) {
-          const visitor = response.visitor;
-          setExistingVisitor(visitor);
-          Alert.alert(
-            'Existing Visitor Found',
-            `Found existing visitor: ${visitor.name}\nEmail: ${visitor.email}\nPhone: ${visitor.phone}`,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { 
-                text: 'Use This Info', 
-                onPress: () => {
-                  setFormData(prev => ({
-                    ...prev,
-                    name: visitor.name,
-                    email: visitor.email,
-                    phone: visitor.phone,
-                  }));
-                  setExistingVisitor(null);
-                }
+      if (response.found && response.visitor) {
+        const visitor = response.visitor;
+        setExistingVisitor(visitor);
+        Alert.alert(
+          'Existing Visitor Found',
+          `Found existing visitor: ${visitor.name}\nEmail: ${visitor.email}\nPhone: ${visitor.phone}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Use This Info', 
+              onPress: () => {
+                setFormData(prev => ({
+                  ...prev,
+                  name: visitor.name,
+                  email: visitor.email,
+                  phone: visitor.phone,
+                }));
+                setExistingVisitor(null);
               }
-            ]
-          );
+            }
+          ]
+        );
       } else {
         setExistingVisitor(null);
         Alert.alert('No Existing Visitor', 'No existing visitor found with these details.');
@@ -132,6 +135,10 @@ export default function CheckInScreen() {
       setSearchLoading(false);
     }
   }, [formData.email, formData.phone]);
+
+  const handleSignatureSaved = (signatureData: string) => {
+    setFormData(prev => ({ ...prev, signature_data: signatureData }));
+  };
 
   const takePhoto = useCallback(async () => {
     try {
@@ -169,7 +176,25 @@ export default function CheckInScreen() {
     try {
       setLoading(true);
       
-      const response = await visitorAPI.checkIn(formData);
+      // Create a copy of form data to send to the API
+      const checkInData = { ...formData };
+      
+      // Log the signature data for debugging
+      if (formData.signature_data) {
+        console.log('Including signature in check-in data');
+        console.log('Signature data type:', typeof formData.signature_data);
+        console.log('Signature data sample:', formData.signature_data.substring(0, 50) + '...');
+      } else {
+        console.warn('No signature data found in form');
+      }
+      
+      // Add is_vector_signature flag if the signature is vector data
+      if (formData.signature_data && formData.signature_data.startsWith('{') && formData.signature_data.includes('paths')) {
+        console.log('Detected vector signature data');
+        checkInData.is_vector_signature = 'true';
+      }
+      
+      const response = await visitorAPI.checkIn(checkInData);
       
       Alert.alert(
         'Check-in Successful',
@@ -180,12 +205,14 @@ export default function CheckInScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // Reset form
+              // Reset form but keep the photo and signature data for potential reuse
               setFormData({
                 name: '',
                 email: '',
                 phone: '',
                 purpose: '',
+                photo_data: formData.photo_data, // Keep photo data
+                signature_data: formData.signature_data // Keep signature data
               });
               setExistingVisitor(null);
               setErrors({});
@@ -298,6 +325,20 @@ export default function CheckInScreen() {
             )}
           </View>
 
+          {/* Digital Signature Section */}
+          <View style={styles.signatureSection}>
+            <Text style={styles.label}>Visitor's Signature (Optional)</Text>
+            <View style={styles.signatureContainer}>
+              <SignaturePad 
+                onSave={handleSignatureSaved}
+                height={150}
+                lineColor="#000000"
+                lineWidth={2}
+                backgroundColor="#ffffff"
+              />
+            </View>
+          </View>
+
           <EnhancedButton
             mode="contained"
             onPress={handleCheckIn}
@@ -313,6 +354,8 @@ export default function CheckInScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -353,8 +396,35 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: borderRadius.sm,
   },
+  signatureSection: {
+    marginBottom: spacing.lg,
+  },
+  signatureContainer: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  label: {
+    fontSize: 14,
+    marginBottom: 4,
+    color: colors.textSecondary,
+  },
+  signaturePreview: {
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  signatureImage: {
+    width: 200,
+    height: 80,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'white',
+    borderRadius: borderRadius.xs,
+  },
   checkInButton: {
     borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
   },
-}); 
+});

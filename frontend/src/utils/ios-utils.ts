@@ -106,8 +106,8 @@ export const iosNetworkConfig = {
   exceptionDomains: [
     'localhost',
     '127.0.0.1',
-    '192.168.1.19',
-    '192.168.1.19',
+    '192.168.1.33',
+    '192.168.1.33',
   ],
 };
 

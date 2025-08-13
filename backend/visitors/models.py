@@ -36,6 +36,8 @@ class Visit(models.Model):
     check_in_time = models.DateTimeField(auto_now_add=True)
     check_out_time = models.DateTimeField(null=True, blank=True)
     duration_minutes = models.IntegerField(null=True, blank=True)
+    signature_data = models.TextField(null=True, blank=True, help_text="Base64 encoded signature data")
+    signature_image = models.ImageField(upload_to='visitor_signatures/', null=True, blank=True)
 
     class Meta:
         ordering = ['-check_in_time']

@@ -52,7 +52,7 @@ The following permissions are configured for iOS:
 
 #### Network Configuration
 - **App Transport Security**: Configured to allow local development
-- **Exception Domains**: localhost, 127.0.0.1, 192.168.1.19, 192.168.1.38
+- **Exception Domains**: localhost, 127.0.0.1, 192.168.1.33, 192.168.1.38
 
 ### 3. Build and Run
 

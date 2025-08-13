@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import {
   View,
   StyleSheet,
@@ -99,6 +100,7 @@ export const VisitorCard = ({
   showActions?: boolean;
 }) => {
   const theme = useTheme();
+  const router = useRouter();
   const [photoError, setPhotoError] = useState(false);
   
   const getInitials = (name: string) => {
@@ -120,7 +122,7 @@ export const VisitorCard = ({
         return photo.image_url;
       } else if (photo.image) {
         // If image_url is not available, construct the full URL
-        const baseUrl = 'http://192.168.1.19:8000'; // Match your backend URL
+        const baseUrl = 'http://192.168.1.33:8000'; // Match your backend URL
         return `${baseUrl}${photo.image}`;
       }
     }
@@ -221,16 +223,54 @@ export const VisitorCard = ({
           
           {showActions && visitor.is_active && onCheckOut && (
             <View style={styles.visitorActions}>
-              <Button
-                mode="outlined"
-                onPress={() => onCheckOut(visitor.id)}
-                style={styles.checkOutButton}
-                labelStyle={styles.checkOutButtonLabel}
-                icon="logout"
-                compact={isMobile}
-              >
-                Check Out
-              </Button>
+              <View style={styles.visitorActionButtons}>
+                <Button
+                  mode="outlined"
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    const signatureData = visitor.signature_data || visitor.signature;
+                    const signatureUrl = visitor.signature_url || 
+                      (signatureData && signatureData.startsWith('http') ? signatureData : null);
+                    
+                    router.push({
+                      pathname: "/visitor-detail",
+                      params: {
+                        id: visitor.id,
+                        name: getVisitorName(),
+                        email: getVisitorEmail(),
+                        phone: getVisitorPhone(),
+                        purpose: visitor.purpose,
+                        checkInTime: visitor.check_in_time,
+                        checkOutTime: visitor.check_out_time,
+                        signatureUrl: signatureUrl,
+                        signature_data: signatureData && !signatureData.startsWith('http') ? signatureData : undefined,
+                        photoUrl: getVisitorPhoto(),
+                      },
+                    });
+                  }}
+                  style={[styles.actionButton, { marginRight: spacing.xs }]}
+                  labelStyle={styles.actionButtonLabel}
+                  icon="eye"
+                  compact={isMobile}
+                >
+                  View
+                </Button>
+                {showActions && visitor.is_active && onCheckOut && (
+                  <Button
+                    mode="outlined"
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      onCheckOut(visitor.id);
+                    }}
+                    style={styles.actionButton}
+                    labelStyle={styles.checkOutButtonLabel}
+                    icon="logout"
+                    compact={isMobile}
+                  >
+                    Check Out
+                  </Button>
+                )}
+              </View>
             </View>
           )}
         </Card.Content>
@@ -450,18 +490,25 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   visitorActions: {
+    marginTop: spacing.sm,
+  },
+  visitorActionButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: getResponsiveSpacing(spacing.md),
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  actionButton: {
+    minWidth: 100,
   },
   checkOutButton: {
     borderColor: colors.error,
   },
   checkOutButtonLabel: {
     color: colors.error,
-    fontSize: getResponsiveTextSize(responsive.fontSize.sm),
+  },
+  actionButtonLabel: {
+    color: colors.primary,
   },
   visitorTimeContainer: {
     flexDirection: isTablet ? 'row' : 'column',

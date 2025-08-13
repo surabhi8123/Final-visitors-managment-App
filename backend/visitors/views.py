@@ -54,12 +54,92 @@ class VisitorViewSet(viewsets.ModelViewSet):
                     phone=data['phone']
                 )
             
-            # Create visit record
-            visit = Visit.objects.create(
-                visitor=visitor,
-                purpose=data['purpose'],
-                host_name=data.get('host_name', '')
-            )
+            # Create visit record with signature data if available
+            visit_data = {
+                'visitor': visitor,
+                'purpose': data['purpose'],
+                'host_name': data.get('host_name', '')
+            }
+            
+            # Create the visit record first
+            visit = Visit.objects.create(**visit_data)
+            
+            # Handle signature data if provided (either as direct file upload or base64 data)
+            signature_file = request.FILES.get('signature_image')
+            signature_data = data.get('signature_data')
+            is_vector_signature = data.get('is_vector_signature', '').lower() == 'true'
+            
+            try:
+                if signature_file:
+                    # Handle file upload
+                    print(f"Processing signature file upload: {signature_file.name}")
+                    visit.signature_image.save(
+                        f"signature_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.png",
+                        signature_file,
+                        save=False
+                    )
+                    if signature_data:
+                        visit.signature_data = signature_data
+                    visit.save()
+                    print(f"Successfully saved signature file for visit {visit.id}")
+                
+                elif signature_data:
+                    print("Processing signature data...")
+                    
+                    # Handle vector-based signature
+                    if is_vector_signature or (signature_data.startswith('{') and 'paths' in signature_data):
+                        print("Detected vector signature data")
+                        visit.signature_data = signature_data
+                        visit.signature_type = 'vector'
+                        visit.save()
+                        print(f"Successfully saved vector signature for visit {visit.id}")
+                    
+                    # Handle image data URL
+                    elif signature_data.startswith('data:image/'):
+                        print("Processing image signature data...")
+                        visit.signature_data = signature_data
+                        
+                        if ';base64,' in signature_data:
+                            format, imgstr = signature_data.split(';base64,')
+                            ext = format.split('/')[-1] if '/' in format else 'png'
+                            
+                            filename = f"signature_{timezone.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
+                            
+                            try:
+                                # Save the signature image file
+                                visit.signature_image.save(
+                                    filename, 
+                                    ContentFile(base64.b64decode(imgstr)), 
+                                    save=True
+                                )
+                                print(f"Successfully saved signature image: {visit.signature_image.name}")
+                            except Exception as img_error:
+                                print(f"Error saving signature image: {str(img_error)}")
+                                print(f"Signature data length: {len(signature_data)}")
+                                print(f"Starts with: {signature_data[:50]}...")
+                        else:
+                            print(f"Invalid signature data format. Expected data URL with base64")
+                        
+                        visit.save()
+                        print(f"Successfully saved visit {visit.id} with image signature")
+                    
+                    # Handle other types of signature data
+                    else:
+                        print("Saving raw signature data")
+                        visit.signature_data = signature_data
+                        visit.save()
+                        print(f"Successfully saved raw signature data for visit {visit.id}")
+                
+                else:
+                    print("No signature data or file provided")
+                    visit.save()
+                    
+            except Exception as e:
+                import traceback
+                error_trace = traceback.format_exc()
+                print(f"Error processing signature: {str(e)}\n{error_trace}")
+                # Save the visit without the signature data
+                visit.save()
             
             # Handle photo upload if provided
             photo_file = request.FILES.get('photo')

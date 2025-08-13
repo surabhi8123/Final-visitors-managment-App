@@ -3,6 +3,7 @@ import { Stack, Slot, router } from 'expo-router';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { Dimensions, Alert } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { paperTheme, colors, spacing } from '../src/utils/theme';
@@ -143,12 +144,14 @@ function AuthWrapper() {
 
 export default function RootLayout() {
   return (
-    <PaperProvider theme={paperTheme}>
-      <StatusBar style="auto" />
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <AuthWrapper />
+        <PaperProvider theme={paperTheme}>
+          <StatusBar style="auto" />
+          <AuthWrapper />
+        </PaperProvider>
       </AuthProvider>
-    </PaperProvider>
+    </GestureHandlerRootView>
   );
 }
 

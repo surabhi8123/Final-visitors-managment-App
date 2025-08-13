@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+
+// Check if we're in a web environment
+const isWeb = Platform.OS === 'web';
 
 // Define the authentication context type
 interface AuthContextType {
@@ -97,6 +101,11 @@ const resetLoginAttempts = async (): Promise<void> => {
 
 // Helper function to store data securely
 const secureStore = async (key: string, value: string): Promise<void> => {
+  if (isWeb) {
+    await AsyncStorage.setItem(key, value);
+    return;
+  }
+  
   try {
     await SecureStore.setItemAsync(key, value);
   } catch (error) {
@@ -107,6 +116,10 @@ const secureStore = async (key: string, value: string): Promise<void> => {
 
 // Helper function to retrieve data securely
 const secureRetrieve = async (key: string): Promise<string | null> => {
+  if (isWeb) {
+    return await AsyncStorage.getItem(key);
+  }
+  
   try {
     return await SecureStore.getItemAsync(key);
   } catch (error) {
@@ -117,6 +130,11 @@ const secureRetrieve = async (key: string): Promise<string | null> => {
 
 // Helper function to remove data securely
 const secureRemove = async (key: string): Promise<void> => {
+  if (isWeb) {
+    await AsyncStorage.removeItem(key);
+    return;
+  }
+  
   try {
     await SecureStore.deleteItemAsync(key);
   } catch (error) {

@@ -1,7 +1,7 @@
 // Test script to verify visit history endpoint
 const axios = require('axios');
 
-const API_BASE_URL = 'http://192.168.1.19:8000/api';
+const API_BASE_URL = 'http://192.168.1.33:8000/api';
 
 async function testVisitHistory() {
   try {

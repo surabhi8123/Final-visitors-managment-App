@@ -20,7 +20,7 @@ This document summarizes all the iOS-specific improvements and configurations ad
 
 ### 3. **Network Security Configuration**
 - ✅ **App Transport Security**: Configured for development
-- ✅ **Exception Domains**: localhost, 127.0.0.1, 192.168.1.19, 192.168.1.38
+- ✅ **Exception Domains**: localhost, 127.0.0.1, 192.168.1.33, 192.168.1.38
 - ✅ **Allows Arbitrary Loads**: true (development only)
 
 ### 4. **Plugin Configuration**

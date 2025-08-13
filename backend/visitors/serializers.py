@@ -48,15 +48,42 @@ class VisitSerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(read_only=True)
     status = serializers.CharField(read_only=True)
     photos = serializers.SerializerMethodField()
+    signature_url = serializers.SerializerMethodField()
+    signature_data = serializers.CharField(read_only=True)
 
     class Meta:
         model = Visit
         fields = [
             'id', 'visitor', 'visitor_name', 'visitor_email', 'visitor_phone',
             'purpose', 'host_name', 'check_in_time', 'check_out_time', 'duration_minutes',
-            'duration_formatted', 'is_active', 'status', 'photos'
+            'duration_formatted', 'is_active', 'status', 'photos', 'signature_url', 'signature_data'
         ]
         read_only_fields = ['id', 'check_in_time', 'check_out_time', 'duration_minutes']
+
+    def get_signature_url(self, obj):
+        """Get the full URL for the signature image if it exists."""
+        try:
+            # Check if the signature_image field exists and has a value
+            if not hasattr(obj, 'signature_image') or not obj.signature_image:
+                return None
+                
+            # Get the file field value
+            signature_file = obj.signature_image
+            
+            # Check if the file exists in storage
+            if not signature_file:
+                return None
+                
+            # Get the URL
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(signature_file.url)
+            return signature_file.url
+            
+        except Exception as e:
+            # Log the error but don't break the API response
+            print(f"Error generating signature URL for visit {getattr(obj, 'id', 'unknown')}: {str(e)}")
+            return None
 
     def get_photos(self, obj):
         """Get photos with proper context."""
@@ -98,6 +125,7 @@ class CheckInSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=20)
+    signature_data = serializers.CharField(required=False, allow_blank=True, write_only=True)
     purpose = serializers.CharField()
     host_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
     photo = serializers.ImageField(required=False, allow_null=True)
@@ -140,15 +168,48 @@ class VisitHistorySerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(read_only=True)
     status = serializers.CharField(read_only=True)
     photos = serializers.SerializerMethodField()
+    signature_url = serializers.SerializerMethodField()
+    signature_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Visit
         fields = [
-            'id', 'visitor_name', 'visitor_email', 'visitor_phone',
-            'purpose', 'host_name', 'check_in_time', 'check_out_time', 'duration_formatted', 'is_active', 'status', 'photos'
+            'id', 'visitor', 'visitor_name', 'visitor_email', 'visitor_phone',
+            'purpose', 'host_name', 'check_in_time', 'check_out_time', 'duration_minutes',
+            'duration_formatted', 'is_active', 'status', 'photos', 'signature_url', 'signature_data'
         ]
+
+    def get_signature_url(self, obj):
+        """Get the full URL for the signature image if it exists."""
+        try:
+            if not hasattr(obj, 'signature_image') or not obj.signature_image:
+                return None
+                
+            signature_file = obj.signature_image
+            
+            if not signature_file:
+                return None
+                
+            request = self.context.get('request')
+            if request is not None:
+                return request.build_absolute_uri(signature_file.url)
+            return signature_file.url
+            
+        except Exception as e:
+            print(f"Error generating signature URL for visit {getattr(obj, 'id', 'unknown')}: {str(e)}")
+            return None
+
+    def get_signature_data(self, obj):
+        """Get base64 encoded signature data if available."""
+        try:
+            if hasattr(obj, 'signature_data') and obj.signature_data:
+                return obj.signature_data
+            return None
+        except Exception as e:
+            print(f"Error getting signature data: {str(e)}")
+            return None
 
     def get_photos(self, obj):
         """Get photos with proper context."""
         photos = obj.photos.all()
-        return VisitorPhotoSerializer(photos, many=True, context=self.context).data 
+        return VisitorPhotoSerializer(photos, many=True, context=self.context).data

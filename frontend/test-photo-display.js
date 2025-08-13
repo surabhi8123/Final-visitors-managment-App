@@ -5,7 +5,7 @@ const testPhotoDisplay = () => {
   console.log('Testing photo display functionality...');
   
   // Test photo URL construction
-  const baseUrl = 'http://192.168.1.19:8000';
+  const baseUrl = 'http://192.168.1.33:8000';
   const photoPath = '/media/visitor_photos/visitor_photo_123.jpg';
   const fullUrl = `${baseUrl}${photoPath}`;
   

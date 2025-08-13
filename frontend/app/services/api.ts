@@ -58,7 +58,7 @@ api.interceptors.response.use(
     
     if (error.code === 'ERR_NETWORK') {
       console.error('🌐 Network Error:', error.message);
-      return Promise.reject(new Error('Network error. Please check your internet connection and ensure the backend server is running on http://192.168.1.19:8000'));
+      return Promise.reject(new Error('Network error. Please check your internet connection and ensure the backend server is running on http://192.168.1.33:8000'));
     }
     
     if (error.response) {
@@ -120,7 +120,7 @@ export const debugApiConnection = async (): Promise<void> => {
     console.log('❌ Backend connection failed!');
     console.log('💡 Troubleshooting tips:');
     console.log('   1. Make sure backend is running: python start_server.py');
-    console.log('   2. Check if backend is accessible at: http://192.168.1.19:8000');
+    console.log('   2. Check if backend is accessible at: http://192.168.1.33:8000');
     console.log('   3. Verify mobile device is on same WiFi network');
     console.log('   4. Check firewall settings on your computer');
     console.log('   5. Try using your computer\'s actual IP address');
@@ -131,8 +131,8 @@ export const visitorAPI = {
   // Check in a new visitor
   checkIn: async (data: CheckInData): Promise<CheckInResponse> => {
     try {
-      // If photo_data is provided, use FormData for multipart upload
-      if (data.photo_data) {
+      // If photo_data or signature_data is provided, use FormData for multipart upload
+      if (data.photo_data || data.signature_data) {
         const formData = new FormData();
         
         // Add text fields
@@ -141,39 +141,98 @@ export const visitorAPI = {
         formData.append('phone', data.phone);
         formData.append('purpose', data.purpose);
         
-        // Convert base64 data URL to file object
-        const photoData = data.photo_data;
-        if (photoData.startsWith('data:image/')) {
-          // Extract base64 data from data URL
-          const base64Data = photoData.split(',')[1];
-          const mimeType = photoData.split(':')[1].split(';')[0];
-          const extension = mimeType.split('/')[1];
+        // Handle photo data if provided
+        if (data.photo_data) {
+          const photoData = data.photo_data;
+          if (photoData.startsWith('data:image/')) {
+            // Extract base64 data from data URL
+            const base64Data = photoData.split(',')[1];
+            const mimeType = photoData.split(':')[1].split(';')[0];
+            const extension = mimeType.split('/')[1];
+            
+            // Create file name
+            const photoFileName = `visitor_photo_${Date.now()}.${extension}`;
+            
+            // Create file object from base64
+            const photoFile = {
+              uri: photoData,
+              type: mimeType,
+              name: photoFileName,
+            } as any;
+            
+            formData.append('photo', photoFile);
+          } else {
+            // If it's already a file URI, use it directly
+            const photoFileName = `visitor_photo_${Date.now()}.jpg`;
+            formData.append('photo', {
+              uri: photoData,
+              type: 'image/jpeg',
+              name: photoFileName,
+            } as any);
+          }
+        }
+
+        // Handle signature data if provided
+        if (data.signature_data) {
+          const signatureData = data.signature_data;
+          console.log('Processing signature data:', signatureData.substring(0, 50) + '...');
           
-          // Create file name
-          const photoFileName = `visitor_photo_${Date.now()}.${extension}`;
-          
-          // Create file object from base64
-          const photoFile = {
-            uri: photoData,
-            type: mimeType,
-            name: photoFileName,
-          } as any;
-          
-          formData.append('photo', photoFile);
-        } else {
-          // If it's already a file URI, use it directly
-          const photoFileName = `visitor_photo_${Date.now()}.jpg`;
-          formData.append('photo', {
-            uri: photoData,
-            type: 'image/jpeg',
-            name: photoFileName,
-          } as any);
+          try {
+            // Check if it's vector data (starts with { or [)
+            if ((signatureData.startsWith('{') || signatureData.startsWith('[')) && 
+                (signatureData.includes('paths') || signatureData.includes('lineColor'))) {
+              console.log('Processing vector signature data');
+              formData.append('signature_data', signatureData);
+              
+              // Add a flag to indicate this is vector data
+              formData.append('is_vector_signature', 'true');
+            } 
+            // Handle image data URLs
+            else if (signatureData.startsWith('data:image/')) {
+              console.log('Processing image signature data');
+              formData.append('signature_data', signatureData);
+              
+              const mimeType = signatureData.split(':')[1].split(';')[0];
+              const extension = mimeType.split('/')[1] || 'png';
+              const signatureFileName = `signature_${Date.now()}.${extension}`;
+              
+              // For React Native, we'll use the base64 data directly
+              formData.append('signature_image', {
+                uri: signatureData,
+                type: mimeType,
+                name: signatureFileName,
+              } as any);
+              
+              console.log('Signature image prepared for upload:', signatureFileName);
+            }
+            // Handle file URIs
+            else if (signatureData.startsWith('file://')) {
+              console.log('Processing file URI signature');
+              const signatureFileName = `visitor_signature_${Date.now()}.png`;
+              formData.append('signature_image', {
+                uri: signatureData,
+                type: 'image/png',
+                name: signatureFileName,
+              } as any);
+            }
+            // Fallback for any other data format
+            else {
+              console.log('Using raw signature data as fallback');
+              formData.append('signature_data', signatureData);
+            }
+          } catch (error) {
+            console.error('Error processing signature data:', error);
+            // Always include the raw data as a last resort
+            formData.append('signature_data', signatureData);
+          }
         }
         
-        console.log('📸 Uploading photo with FormData:', {
+        console.log('📸 Uploading form data:', {
           name: data.name,
           hasPhoto: !!data.photo_data,
-          photoType: data.photo_data?.startsWith('data:') ? 'base64' : 'file'
+          hasSignature: !!data.signature_data,
+          photoType: data.photo_data?.startsWith('data:') ? 'base64' : 'file',
+          signatureType: data.signature_data?.startsWith('data:') ? 'base64' : 'file'
         });
         
         const response = await api.post('/visitors/check_in/', formData, {
@@ -183,7 +242,7 @@ export const visitorAPI = {
         });
         return response.data;
       } else {
-        // No photo, use regular JSON
+        // No files to upload, use regular JSON
         const response = await api.post('/visitors/check_in/', data);
         return response.data;
       }

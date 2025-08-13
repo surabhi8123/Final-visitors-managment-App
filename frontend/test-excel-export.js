@@ -2,7 +2,7 @@
 const axios = require('axios');
 const fs = require('fs');
 
-const API_BASE_URL = 'http://192.168.1.19:8000/api';
+const API_BASE_URL = 'http://192.168.1.33:8000/api';
 
 async function testExcelExport() {
   try {

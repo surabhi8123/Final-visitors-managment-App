@@ -124,7 +124,14 @@ export default function AppLayout() {
             fontSize: isMobile ? 16 : 18,
           },
         }}
-              />
+      />
+      
+      <Stack.Screen
+        name="visitor-detail"
+        options={{
+          headerShown: false,
+        }}
+      />
       </Stack>
     </AuthGuard>
   );

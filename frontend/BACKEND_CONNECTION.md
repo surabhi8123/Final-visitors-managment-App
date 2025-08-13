@@ -5,9 +5,9 @@ This guide explains how to connect your React Native frontend to your Django bac
 ## Current Configuration
 
 Your frontend is configured to connect to your Django backend at:
-- **IP Address**: `192.168.1.19`
+- **IP Address**: `192.168.1.33`
 - **Port**: `8000`
-- **API Base URL**: `http://192.168.1.19:8000/api`
+- **API Base URL**: `http://192.168.1.33:8000/api`
 
 ## Setup Instructions
 
@@ -27,7 +27,7 @@ python manage.py runserver 0.0.0.0:8000
 Test if your backend is accessible from your computer:
 
 ```bash
-curl http://192.168.1.19:8000/api/visitors/active/
+curl http://192.168.1.33:8000/api/visitors/active/
 ```
 
 You should see a JSON response with visitor data.
@@ -60,7 +60,7 @@ The app shows connection status in the header:
 
 1. **Check if backend is running**:
    ```bash
-   curl http://192.168.1.19:8000/api/visitors/active/
+   curl http://192.168.1.33:8000/api/visitors/active/
    ```
 
 2. **Check your IP address**:
@@ -80,7 +80,7 @@ The app shows connection status in the header:
 ### For Different Environments:
 
 - **Simulator/Emulator**: Uses `127.0.0.1:8000`
-- **Physical Device**: Uses `192.168.1.19:8000`
+- **Physical Device**: Uses `192.168.1.33:8000`
 - **Production**: Uses your production URL
 
 ## API Endpoints

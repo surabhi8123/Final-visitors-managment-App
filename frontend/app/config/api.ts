@@ -1,18 +1,20 @@
 import { Platform } from 'react-native';
 
+// Determine if we're running in a web environment
+const isWeb = Platform.OS === 'web';
+
 // API Configuration
 export const API_CONFIG = {
   // Development settings
   development: {
-    // Use computer's IP address for mobile device connectivity
-    base: 'http://192.168.1.19:8000/api',
-    // Fallback for simulator/emulator testing
-    localhost: 'http://127.0.0.1:8000/api',
-    // Alternative IPs to try
+    // Default to localhost for web and development
+    base: isWeb ? 'http://localhost:8000/api' : 'http://192.168.1.33:8000/api',
+    // Alternative IPs to try for connection testing
     alternatives: [
-      'http://192.168.1.19:8000/api',
+      'http://localhost:8000/api',
+      'http://127.0.0.1:8000/api',
+      'http://192.168.1.33:8000/api', // For mobile device testing
       'http://10.0.2.2:8000/api', // Android emulator
-      'http://localhost:8000/api', // iOS simulator
     ],
   },
   // Production settings
@@ -21,18 +23,19 @@ export const API_CONFIG = {
   },
 };
 
-// Get the appropriate API URL based on environment
+// Get the appropriate API URL based on environment and platform
 export const getApiBaseUrl = (): string => {
   if (__DEV__) {
-    // For development, use the IP address for mobile device connectivity
+    // In development, use the base URL from config
     return API_CONFIG.development.base;
   }
+  // In production, use the production URL
   return API_CONFIG.production.base;
 };
 
 // Get localhost URL for simulator/emulator testing
 export const getLocalhostUrl = (): string => {
-  return API_CONFIG.development.localhost;
+  return API_CONFIG.development.alternatives[0] || 'http://localhost:8000/api';
 };
 
 // Get alternative URLs for testing

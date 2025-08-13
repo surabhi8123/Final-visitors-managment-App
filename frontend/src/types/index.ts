@@ -26,6 +26,8 @@ export interface Visit {
   is_active: boolean;
   status: string;
   photos: VisitorPhoto[];
+  signature_data?: string;
+  signature_url?: string;
 }
 
 export interface VisitorPhoto {
@@ -41,6 +43,7 @@ export interface CheckInData {
   phone: string;
   purpose: string;
   photo_data?: string;
+  signature_data?: string;
 }
 
 export interface CheckOutData {
