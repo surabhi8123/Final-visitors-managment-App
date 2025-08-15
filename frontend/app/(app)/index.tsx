@@ -161,19 +161,8 @@ export default function DashboardScreen() {
       }
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <SectionHeader
-        title="Dashboard"
-        subtitle="ThorSignia Visitor Management Overview"
-        action={
-          <IconButton
-            icon={connectionStatus === 'connected' ? 'wifi' : connectionStatus === 'checking' ? 'wifi-sync' : 'wifi-off'}
-            size={20}
-            iconColor={connectionStatus === 'connected' ? colors.success : connectionStatus === 'checking' ? colors.warning : colors.error}
-            onPress={() => fetchDashboardData()}
-          />
-        }
-      />
+      {/* Header section removed as per request */}
+      
 
              {/* Stats Cards */}
        <View style={styles.statsContainer}>
@@ -283,6 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
+    paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
   },
   statsContainer: {
