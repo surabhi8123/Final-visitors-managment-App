@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Image, Dimensions, ViewStyle } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { getApiBaseUrl } from '../../app/config/api';
 import { 
   Text, 
   Title, 
@@ -186,7 +187,7 @@ export default function VisitorDetailScreen() {
                     if (params.signatureUrl) {
                       const signatureUrl = params.signatureUrl.startsWith('data:') || params.signatureUrl.startsWith('http')
                         ? params.signatureUrl 
-                        : `http://192.168.1.33:8000${params.signatureUrl.startsWith('/') ? '' : '/'}${params.signatureUrl}`;
+                        : `${getApiBaseUrl().replace('/api', '')}${params.signatureUrl.startsWith('/') ? '' : '/'}${params.signatureUrl}`;
                       
                       console.log('Attempting to load signature from URL:', signatureUrl);
                       
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontWeight: '600',
-    color: colors.text,
+    color: colors.gray800, // Using gray800 instead of text which doesn't exist
     marginRight: spacing.sm,
   },
   detailValue: {

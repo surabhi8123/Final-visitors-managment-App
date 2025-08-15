@@ -122,7 +122,7 @@ export const VisitorCard = ({
         return photo.image_url;
       } else if (photo.image) {
         // If image_url is not available, construct the full URL
-        const baseUrl = 'http://192.168.1.33:8000'; // Match your backend URL
+        const baseUrl = 'http://localhost:8000'; // Match your backend URL
         return `${baseUrl}${photo.image}`;
       }
     }

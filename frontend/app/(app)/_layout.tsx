@@ -132,6 +132,28 @@ export default function AppLayout() {
           headerShown: false,
         }}
       />
+      
+      <Stack.Screen
+        name="test-connection-screen"
+        options={{
+          title: 'Connection Tester',
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: isMobile ? 16 : 18,
+          },
+        }}
+      />
+      
+      <Stack.Screen
+        name="test-connection"
+        options={{
+          title: 'Test Connection',
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: isMobile ? 16 : 18,
+          },
+        }}
+      />
       </Stack>
     </AuthGuard>
   );

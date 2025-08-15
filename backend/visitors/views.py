@@ -11,9 +11,10 @@ import base64
 from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.utils import get_column_letter
+from docx import Document
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
 
 from .models import Visitor, Visit, VisitorPhoto, CustomAdmin
 from .serializers import (
@@ -243,7 +244,7 @@ class VisitorViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def export(self, request):
-        """Export visit history as Excel (.xlsx)."""
+        """Export visit history as a Word document (.docx)."""
         visits = Visit.objects.all().order_by('-check_in_time')
         
         # Apply same filters as history endpoint
@@ -264,12 +265,22 @@ class VisitorViewSet(viewsets.ModelViewSet):
         if date_to:
             visits = visits.filter(check_in_time__date__lte=date_to)
         
-        # Create Excel workbook
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Visit History"
+        # Create a new Word document
+        doc = Document()
         
-        # Define headers with all available fields
+        # Add a title
+        title = doc.add_heading('Visit History', level=1)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Add export date
+        export_date = doc.add_paragraph(f'Exported on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+        export_date.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        
+        # Add a table
+        table = doc.add_table(rows=1, cols=17)  # 17 columns as per the original Excel
+        table.style = 'Table Grid'
+        
+        # Set table headers
         headers = [
             'Visitor ID', 'Visitor Name', 'Email', 'Phone Number', 
             'Purpose of Visit', 'Host Name', 'Approval Status', 'Visit ID',
@@ -278,27 +289,14 @@ class VisitorViewSet(viewsets.ModelViewSet):
             'Visitor Updated At', 'Visit Created At'
         ]
         
-        # Style for headers
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-        header_alignment = Alignment(horizontal="center", vertical="center")
-        border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
-        )
-        
-        # Add headers
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-            cell.border = border
+        # Style and add headers
+        hdr_cells = table.rows[0].cells
+        for i, header in enumerate(headers):
+            hdr_cells[i].text = header
+            hdr_cells[i].paragraphs[0].runs[0].bold = True
+            hdr_cells[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         
         # Add data rows
-        row = 2
         for visit in visits:
             # Get photo URL if available
             photo_url = ""
@@ -319,7 +317,7 @@ class VisitorViewSet(viewsets.ModelViewSet):
                 str(visit.id),
                 visit.check_in_time.strftime('%Y-%m-%d %H:%M:%S'),
                 visit.check_out_time.strftime('%Y-%m-%d %H:%M:%S') if visit.check_out_time else 'N/A',
-                visit.duration_minutes or 'N/A',
+                str(visit.duration_minutes) if visit.duration_minutes is not None else 'N/A',
                 visit.duration_formatted,
                 'Yes' if visit.is_active else 'No',
                 photo_url,
@@ -328,42 +326,31 @@ class VisitorViewSet(viewsets.ModelViewSet):
                 visit.check_in_time.strftime('%Y-%m-%d %H:%M:%S')  # Visit created at is same as check-in time
             ]
             
-            # Add row data
-            for col, value in enumerate(row_data, 1):
-                cell = ws.cell(row=row, column=col, value=value)
-                cell.border = border
-                cell.alignment = Alignment(horizontal="left", vertical="center")
-            
-            row += 1
+            # Add a new row to the table
+            row_cells = table.add_row().cells
+            for i, value in enumerate(row_data):
+                row_cells[i].text = str(value)
         
-        # Auto-adjust column widths
-        for column in ws.columns:
-            max_length = 0
-            column_letter = get_column_letter(column[0].column)
-            for cell in column:
-                try:
-                    if len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)  # Cap at 50 characters
-            ws.column_dimensions[column_letter].width = adjusted_width
+        # Auto-fit the table columns
+        for section in doc.sections:
+            section.left_margin = Inches(0.5)
+            section.right_margin = Inches(0.5)
         
-        # Save to bytes buffer
-        excel_buffer = io.BytesIO()
-        wb.save(excel_buffer)
-        excel_buffer.seek(0)
+        # Save the document to a bytes buffer
+        doc_buffer = io.BytesIO()
+        doc.save(doc_buffer)
+        doc_buffer.seek(0)
         
         # Convert to base64 for JSON response
-        excel_data = base64.b64encode(excel_buffer.getvalue()).decode('utf-8')
-        excel_buffer.close()
+        doc_data = base64.b64encode(doc_buffer.getvalue()).decode('utf-8')
+        doc_buffer.close()
         
-        # Return JSON response with Excel data
+        # Return JSON response with document data
         return Response({
             'message': 'Visit history exported successfully',
-            'filename': f'visit_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx',
-            'data': excel_data,
-            'count': row - 2  # Subtract header row
+            'filename': f'visit_history_{datetime.now().strftime("%Y%m%d_%H%M%S")}.docx',
+            'data': doc_data,
+            'count': visits.count()
         })
 
     @action(detail=False, methods=['get'])

@@ -20,6 +20,11 @@ import {
 } from 'react-native-paper';
 import { visitorAPI } from '../services/api';
 import { Visit } from '../../src/types';
+
+type TimeFilterDates = {
+  dateFrom: string;
+  dateTo: string;
+};
 import { 
   colors, 
   spacing, 
@@ -62,13 +67,15 @@ export default function HistoryScreen() {
       console.log('🔍 Fetching visit history with time filter:', { timeFilter, sortBy });
       
       // Get time filter dates if applicable
-      const timeFilterDates = timeFilter !== 'all' ? getTimeFilterDates(timeFilter) : {};
+      const timeFilterDates = timeFilter !== 'all' 
+        ? getTimeFilterDates(timeFilter) 
+        : { dateFrom: '', dateTo: '' };
       
       // Convert filter names to match API expectations
-      const apiFilters = {
-        date_from: timeFilterDates.dateFrom,
-        date_to: timeFilterDates.dateTo,
-      };
+      const apiFilters: { date_from?: string; date_to?: string } = {};
+      
+      if (timeFilterDates.dateFrom) apiFilters.date_from = timeFilterDates.dateFrom;
+      if (timeFilterDates.dateTo) apiFilters.date_to = timeFilterDates.dateTo;
       
       console.log('📡 API filters:', apiFilters);
       const response = await visitorAPI.getVisitHistory(apiFilters);
@@ -105,30 +112,38 @@ export default function HistoryScreen() {
   const handleExport = useCallback(async () => {
     try {
       // Get time filter dates if applicable
-      const timeFilterDates = timeFilter !== 'all' ? getTimeFilterDates(timeFilter) : {};
+      const timeFilterDates = timeFilter !== 'all' ? getTimeFilterDates(timeFilter) : { dateFrom: '', dateTo: '' };
       
       // Convert filter names to match API expectations
-      const apiFilters = {
-        date_from: timeFilterDates.dateFrom,
-        date_to: timeFilterDates.dateTo,
-      };
+      const apiFilters: { date_from?: string; date_to?: string } = {};
+      
+      if (timeFilterDates.dateFrom) apiFilters.date_from = timeFilterDates.dateFrom;
+      if (timeFilterDates.dateTo) apiFilters.date_to = timeFilterDates.dateTo;
       
       const response = await visitorAPI.exportVisitHistory(apiFilters);
       
-      // Share the Excel data
+      // Create a timestamp for the filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `Visit_History_${timestamp}.docx`;
+      
+      // Share the Word document
       await Share.share({
-        message: `Visit History Export - ${response.filename}`,
-        title: 'Visit History Excel',
+        title: 'Visit History Export',
+        message: `Visit history export - ${filename}`,
+        url: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${response.data}`,
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename: filename,
+        subject: 'Visit History Export',
       });
       
       Alert.alert('Export Successful', `Visit history exported successfully! ${response.count} records.`);
     } catch (error: any) {
       console.error('❌ Error exporting visit history:', error);
-      Alert.alert('Error', 'Failed to export visit history');
+      Alert.alert('Error', 'Failed to export visit history. Please try again.');
     }
-  }, []);
+  }, [timeFilter]);
 
-  const getTimeFilterDates = useCallback((filter: string) => {
+  const getTimeFilterDates = useCallback((filter: string): TimeFilterDates => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -138,7 +153,7 @@ export default function HistoryScreen() {
           dateFrom: today.toISOString().split('T')[0],
           dateTo: today.toISOString().split('T')[0]
         };
-      case 'thisWeek':
+      case 'thisWeek': {
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
         const endOfWeek = new Date(startOfWeek);
@@ -147,13 +162,15 @@ export default function HistoryScreen() {
           dateFrom: startOfWeek.toISOString().split('T')[0],
           dateTo: endOfWeek.toISOString().split('T')[0]
         };
-      case 'thisMonth':
+      }
+      case 'thisMonth': {
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         return {
           dateFrom: startOfMonth.toISOString().split('T')[0],
           dateTo: endOfMonth.toISOString().split('T')[0]
         };
+      }
       default:
         return { dateFrom: '', dateTo: '' };
     }
@@ -334,7 +351,7 @@ export default function HistoryScreen() {
               icon="download"
               compact={isMobile}
             >
-              Export Excel
+              Export Word Document
             </EnhancedButton>
           </View>
 
