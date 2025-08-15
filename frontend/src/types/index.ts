@@ -21,6 +21,8 @@ export interface Visit {
   purpose: string;
   check_in_time: string;
   check_out_time: string | null;
+  check_in?: string; // Alias for check_in_time
+  check_out?: string | null; // Alias for check_out_time
   duration_minutes: number | null;
   duration_formatted: string;
   is_active: boolean;
@@ -28,6 +30,12 @@ export interface Visit {
   photos: VisitorPhoto[];
   signature_data?: string;
   signature_url?: string;
+  photo_data?: string; // For photo URL in exports
+  photoUrl?: string; // Alias for photo_data
+  name?: string; // Alias for visitor_name
+  email?: string; // Alias for visitor_email
+  phone?: string; // Alias for visitor_phone
+  checkedOut?: boolean; // Derived from check_out_time
 }
 
 export interface VisitorPhoto {

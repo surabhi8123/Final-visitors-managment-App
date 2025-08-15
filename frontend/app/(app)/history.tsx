@@ -38,6 +38,9 @@ import {
   layoutPatterns,
   getResponsiveSpacing,
 } from '../../src/theme';
+import { exportVisitorsToPDF } from '../utils/pdfExport';
+import { exportVisitorHistoryDocx } from '../utils/docxExport';
+import { exportVisitorHistoryCSV } from '../utils/csvExport';
 import { 
   LoadingView, 
   EmptyState, 
@@ -61,9 +64,65 @@ export default function HistoryScreen() {
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const handleExport = useCallback(async (format: 'pdf' | 'csv') => {
+    try {
+      // Show loading indicator
+      setLoading(true);
+      
+      // Fetch fresh data with current filters
+      const timeFilterDates = timeFilter !== 'all' 
+        ? getTimeFilterDates(timeFilter) 
+        : { dateFrom: '', dateTo: '' };
+      
+      const apiFilters: { date_from?: string; date_to?: string } = {};
+      if (timeFilterDates.dateFrom) apiFilters.date_from = timeFilterDates.dateFrom;
+      if (timeFilterDates.dateTo) apiFilters.date_to = timeFilterDates.dateTo;
+      
+      const response = await visitorAPI.getVisitHistory(apiFilters);
+      const visitsToExport = response?.visits || [];
+      
+      if (visitsToExport.length === 0) {
+        Alert.alert('No Data', 'No visitors to export for the selected filters.');
+        return;
+      }
+
+      if (format === 'pdf') {
+        await exportVisitorsToPDF({
+          visitors: visitsToExport,
+          title: 'ThorSignia Visitor History',
+          onSuccess: (filePath) => {
+            console.log('PDF exported successfully:', filePath);
+          },
+          onError: (error) => {
+            console.error('PDF export error:', error);
+            Alert.alert('Error', 'Failed to export visitor history. Please try again.');
+          },
+        });
+      } else {
+        await exportVisitorHistoryCSV({
+          visitors: visitsToExport,
+          title: 'ThorSignia Visitor History',
+          onSuccess: (filePath) => {
+            console.log('CSV exported successfully:', filePath);
+          },
+          onError: (error) => {
+            console.error('CSV export error:', error);
+            Alert.alert('Error', 'Failed to export visitor history. Please try again.');
+          },
+        });
+      }
+    } catch (error) {
+      console.error(`Error in handleExport (${format}):`, error);
+      Alert.alert('Error', 'An unexpected error occurred during export.');
+    } finally {
+      setLoading(false);
+    }
+  }, [timeFilter]);
+
   const fetchVisitHistory = useCallback(async () => {
     try {
       setError(null);
+
       console.log('🔍 Fetching visit history with time filter:', { timeFilter, sortBy });
       
       // Get time filter dates if applicable
@@ -108,40 +167,6 @@ export default function HistoryScreen() {
     await fetchVisitHistory();
     setRefreshing(false);
   }, [fetchVisitHistory]);
-
-  const handleExport = useCallback(async () => {
-    try {
-      // Get time filter dates if applicable
-      const timeFilterDates = timeFilter !== 'all' ? getTimeFilterDates(timeFilter) : { dateFrom: '', dateTo: '' };
-      
-      // Convert filter names to match API expectations
-      const apiFilters: { date_from?: string; date_to?: string } = {};
-      
-      if (timeFilterDates.dateFrom) apiFilters.date_from = timeFilterDates.dateFrom;
-      if (timeFilterDates.dateTo) apiFilters.date_to = timeFilterDates.dateTo;
-      
-      const response = await visitorAPI.exportVisitHistory(apiFilters);
-      
-      // Create a timestamp for the filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `Visit_History_${timestamp}.docx`;
-      
-      // Share the Word document
-      await Share.share({
-        title: 'Visit History Export',
-        message: `Visit history export - ${filename}`,
-        url: `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${response.data}`,
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        filename: filename,
-        subject: 'Visit History Export',
-      });
-      
-      Alert.alert('Export Successful', `Visit history exported successfully! ${response.count} records.`);
-    } catch (error: any) {
-      console.error('❌ Error exporting visit history:', error);
-      Alert.alert('Error', 'Failed to export visit history. Please try again.');
-    }
-  }, [timeFilter]);
 
   const getTimeFilterDates = useCallback((filter: string): TimeFilterDates => {
     const now = new Date();
@@ -248,10 +273,13 @@ export default function HistoryScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <SectionHeader
-            title="Visit History"
-            subtitle={`${visits.length} visits found`}
-          />
+          <View style={styles.headerContainer}>
+            <SectionHeader
+              title="Visit History"
+              subtitle={`${visits.length} visits found`}
+            />
+            {/* Export button has been moved to the main content area */}
+          </View>
 
           {/* Quick Filters Section */}
           <FilterCard title="Quick Filters">
@@ -346,12 +374,14 @@ export default function HistoryScreen() {
           <View style={styles.exportContainer}>
             <EnhancedButton
               mode="contained"
-              onPress={handleExport}
+              onPress={() => handleExport('csv')}
               style={styles.exportButton}
-              icon="download"
+              icon="file-document-outline"
               compact={isMobile}
+              loading={loading}
+              disabled={loading || visits.length === 0}
             >
-              Export Word Document
+              Export CSV
             </EnhancedButton>
           </View>
 
@@ -380,6 +410,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  headerContainer: {
+    flexDirection: 'column',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  exportButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.sm,
+  },
+  exportButton: {
+    marginLeft: spacing.sm,
+  },
+  exportButtonLabel: {
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,

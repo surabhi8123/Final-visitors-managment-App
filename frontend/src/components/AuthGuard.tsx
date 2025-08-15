@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useAuth } from '../../app/contexts/AuthContext';
-import { LoadingView } from './index';
+import { LoadingView } from './LoadingView';
 import { colors } from '../theme';
 
 interface AuthGuardProps {

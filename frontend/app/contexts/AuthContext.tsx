@@ -16,6 +16,7 @@ interface AuthContextType {
   error: string | null;
   clearError: () => void;
   forceLogout: () => Promise<void>; // Force logout for security
+  checkAuthState: () => Promise<void>; // Add this line to expose checkAuthState
 }
 
 // Create the context
@@ -38,10 +39,8 @@ const STORAGE_KEYS = {
 
 // Security settings
 const SECURITY_CONFIG = {
-  TOKEN_EXPIRY_HOURS: 24,
-  MAX_LOGIN_ATTEMPTS: 5,
-  LOCKOUT_DURATION_MINUTES: 15,
-  SESSION_TIMEOUT_MINUTES: 30, // Auto logout after inactivity
+  TOKEN_EXPIRY_HOURS: 24 * 30, // 30 days token expiry
+  SESSION_TIMEOUT_MINUTES: 60 * 24 * 30, // 30 days (effectively disables auto-logout)
 };
 
 // Helper function to check if token is expired
@@ -51,53 +50,7 @@ const isTokenExpired = (expiryTimestamp: string): boolean => {
   return now > expiry;
 };
 
-// Helper function to check if account is locked
-const isAccountLocked = async (): Promise<boolean> => {
-  try {
-    const loginAttempts = await secureRetrieve(STORAGE_KEYS.LOGIN_ATTEMPTS);
-    const lastAttempt = await secureRetrieve(STORAGE_KEYS.LAST_LOGIN_ATTEMPT);
-    
-    if (loginAttempts && lastAttempt) {
-      const attempts = parseInt(loginAttempts, 10);
-      const lastAttemptTime = parseInt(lastAttempt, 10);
-      const now = Date.now();
-      const lockoutDuration = SECURITY_CONFIG.LOCKOUT_DURATION_MINUTES * 60 * 1000;
-      
-      if (attempts >= SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS && 
-          (now - lastAttemptTime) < lockoutDuration) {
-        return true;
-      }
-    }
-    return false;
-  } catch (error) {
-    console.error('Error checking account lock status:', error);
-    return false;
-  }
-};
-
-// Helper function to increment login attempts
-const incrementLoginAttempts = async (): Promise<void> => {
-  try {
-    const currentAttempts = await secureRetrieve(STORAGE_KEYS.LOGIN_ATTEMPTS);
-    const attempts = currentAttempts ? parseInt(currentAttempts, 10) + 1 : 1;
-    const now = Date.now();
-    
-    await secureStore(STORAGE_KEYS.LOGIN_ATTEMPTS, attempts.toString());
-    await secureStore(STORAGE_KEYS.LAST_LOGIN_ATTEMPT, now.toString());
-  } catch (error) {
-    console.error('Error incrementing login attempts:', error);
-  }
-};
-
-// Helper function to reset login attempts
-const resetLoginAttempts = async (): Promise<void> => {
-  try {
-    await secureRemove(STORAGE_KEYS.LOGIN_ATTEMPTS);
-    await secureRemove(STORAGE_KEYS.LAST_LOGIN_ATTEMPT);
-  } catch (error) {
-    console.error('Error resetting login attempts:', error);
-  }
-};
+// Removed account lockout functionality as per user request
 
 // Helper function to store data securely
 const secureStore = async (key: string, value: string): Promise<void> => {
@@ -194,29 +147,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [clearSessionTimeout]);
 
   const checkAuthStatus = useCallback(async () => {
+    console.log('🔍 Checking authentication status...');
     try {
       setIsLoading(true);
       
       // Check for existing authentication
-      const authToken = await secureRetrieve(STORAGE_KEYS.AUTH_TOKEN);
-      const username = await secureRetrieve(STORAGE_KEYS.USERNAME);
-      const tokenExpiry = await secureRetrieve(STORAGE_KEYS.TOKEN_EXPIRY);
+      const [authToken, username, tokenExpiry] = await Promise.all([
+        secureRetrieve(STORAGE_KEYS.AUTH_TOKEN),
+        secureRetrieve(STORAGE_KEYS.USERNAME),
+        secureRetrieve(STORAGE_KEYS.TOKEN_EXPIRY)
+      ]);
       
-      console.log('Auth check - Token:', authToken ? 'exists' : 'null', 'Username:', username, 'Expiry:', tokenExpiry);
+      console.log('🔑 Auth check results:', {
+        hasToken: !!authToken,
+        hasUsername: !!username,
+        hasExpiry: !!tokenExpiry,
+        expiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'N/A'
+      });
       
       // Validate token and expiry
       if (authToken && username && tokenExpiry) {
-        if (isTokenExpired(tokenExpiry)) {
-          console.log('Token expired, clearing authentication');
+        const isExpired = isTokenExpired(tokenExpiry);
+        console.log(`⏱️ Token is ${isExpired ? 'expired' : 'valid'}`);
+        
+        if (isExpired) {
+          console.log('⌛ Token expired, clearing authentication...');
           await logout();
           return;
         }
         
-        console.log('User is authenticated with valid token');
+        console.log('✅ User is authenticated with valid token');
         setIsAuthenticated(true);
         startSessionTimeout(); // Start session timeout for authenticated user
       } else {
-        console.log('User is not authenticated');
+        console.log('🔒 User is not authenticated - missing required auth data');
+        if (!authToken) console.log('❌ No auth token found');
+        if (!username) console.log('❌ No username found');
+        if (!tokenExpiry) console.log('❌ No token expiry found');
+        
+        // Clear any partial auth data
+        await Promise.all([
+          secureRemove(STORAGE_KEYS.AUTH_TOKEN),
+          secureRemove(STORAGE_KEYS.USERNAME),
+          secureRemove(STORAGE_KEYS.TOKEN_EXPIRY)
+        ]);
+        
         setIsAuthenticated(false);
       }
       
@@ -231,47 +206,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = useCallback(async (username: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔑 Login attempt started');
+      
+      // Trim whitespace from username to handle accidental spaces
+      const trimmedUsername = username.trim();
+      console.log('📝 Username provided (original):', `'${username}'`);
+      console.log('📝 Username provided (trimmed):', `'${trimmedUsername}'`);
+      console.log('🔒 Password provided (length):', '*'.repeat(password.length));
+      
       setError(null);
       setIsLoading(true);
       
-      // Check if account is locked
-      const locked = await isAccountLocked();
-      if (locked) {
-        const remainingTime = Math.ceil(SECURITY_CONFIG.LOCKOUT_DURATION_MINUTES / 2);
-        setError(`Account temporarily locked. Please try again in ${remainingTime} minutes.`);
-        return false;
-      }
+      // Log the expected values for debugging
+      console.log('🔍 Expected username (case-insensitive):', `'${ADMIN_CREDENTIALS.username.toLowerCase()}'`);
+      console.log('🔍 Provided username (case-insensitive):', `'${trimmedUsername.toLowerCase()}'`);
+      console.log('🔍 Expected password (first 2 chars):', ADMIN_CREDENTIALS.password.substring(0, 2) + '...');
+      console.log('🔍 Provided password length:', password.length);
       
-      // Validate credentials
-      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-        // Reset login attempts on successful login
-        await resetLoginAttempts();
-        
+      // Add a small delay to simulate network request and ensure UI updates properly
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Validate credentials (case-insensitive username, case-sensitive password)
+      const isUsernameMatch = trimmedUsername.toLowerCase() === ADMIN_CREDENTIALS.username.toLowerCase();
+      const isPasswordMatch = password === ADMIN_CREDENTIALS.password;
+      
+      console.log('✅ Username match:', isUsernameMatch);
+      console.log('✅ Password match:', isPasswordMatch);
+      
+      if (isUsernameMatch && isPasswordMatch) {
+        console.log('🎉 Credentials matched - generating token...');
         // Generate a simple token with expiry (in a real app, this would come from the server)
         const authToken = `admin_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const expiryTimestamp = (Date.now() + (SECURITY_CONFIG.TOKEN_EXPIRY_HOURS * 60 * 60 * 1000)).toString();
         
+        console.log('💾 Storing auth data...');
         // Store authentication data securely
-        await secureStore(STORAGE_KEYS.AUTH_TOKEN, authToken);
-        await secureStore(STORAGE_KEYS.USERNAME, username);
-        await secureStore(STORAGE_KEYS.TOKEN_EXPIRY, expiryTimestamp);
+        await Promise.all([
+          secureStore(STORAGE_KEYS.AUTH_TOKEN, authToken),
+          secureStore(STORAGE_KEYS.USERNAME, username),
+          secureStore(STORAGE_KEYS.TOKEN_EXPIRY, expiryTimestamp)
+        ]);
         
+        console.log('🔄 Updating authentication state...');
+        // Use a callback to ensure we have the latest state
         setIsAuthenticated(true);
-        startSessionTimeout(); // Start session timeout
+        
+        // Force a state update to ensure the UI updates
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('🚀 Login successful!');
         return true;
       } else {
-        // Increment failed login attempts
-        await incrementLoginAttempts();
-        
-        const currentAttempts = await secureRetrieve(STORAGE_KEYS.LOGIN_ATTEMPTS);
-        const attempts = currentAttempts ? parseInt(currentAttempts, 10) : 1;
-        const remainingAttempts = SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS - attempts;
-        
-        if (remainingAttempts <= 0) {
-          setError(`Account locked due to too many failed attempts. Please try again in ${SECURITY_CONFIG.LOCKOUT_DURATION_MINUTES} minutes.`);
-        } else {
-          setError(`Invalid username or password. ${remainingAttempts} attempts remaining.`);
-        }
+        console.log('❌ Invalid credentials provided');
+        setError('Invalid username or password');
         return false;
       }
     } catch (error) {
@@ -323,7 +310,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error,
     clearError,
     forceLogout,
-  }), [isAuthenticated, isLoading, hasCheckedAuth, login, logout, error, clearError, forceLogout]);
+    checkAuthState: checkAuthStatus, // Use the correct function name
+  }), [isAuthenticated, isLoading, hasCheckedAuth, login, logout, error, clearError, forceLogout, checkAuthStatus]);
 
   return (
     <AuthContext.Provider value={value}>

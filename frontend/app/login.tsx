@@ -49,13 +49,39 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!validateForm()) return;
+    console.log('Login form submitted');
+    
+    // Trim the username before validation and login
+    const trimmedUsername = formData.username.trim();
+    const loginData = {
+      username: trimmedUsername,
+      password: formData.password
+    };
+    
+    console.log('Form data (before trim):', { username: formData.username, password: formData.password });
+    console.log('Form data (after trim):', loginData);
+    
+    if (!validateForm()) {
+      console.log('Form validation failed');
+      return;
+    }
 
     try {
-      await login(formData.username, formData.password);
+      console.log('Calling login function...');
+      const loginSuccess = await login(loginData.username, loginData.password);
+      console.log('Login function completed. Success:', loginSuccess);
+      
+      if (!loginSuccess) {
+        console.log('Login failed - invalid credentials');
+        Alert.alert('Login Failed', 'Invalid username or password. Please try again.');
+      } else {
+        console.log('Login successful - user should be redirected');
+      }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Login Failed', 'Invalid username or password. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error details:', { error, message: errorMessage });
+      Alert.alert('Login Error', 'An unexpected error occurred. Please try again.');
     }
   };
 

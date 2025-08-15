@@ -46,89 +46,138 @@ if (!API_CONFIG.development.base && API_CONFIG.development.alternatives.length >
 
 // Cache for working URL to avoid repeated connection tests
 let cachedWorkingUrl: string | null = null;
+// Track tested URLs to avoid retesting them
+const testedUnreachableUrls = new Set<string>();
 
 /**
- * Test if a URL is reachable
+ * Test if a URL is reachable with a timeout
  */
 const testUrlReachability = async (url: string): Promise<boolean> => {
+  // Skip if we already know this URL is unreachable
+  if (testedUnreachableUrls.has(url)) {
+    return false;
+  }
+
   try {
     const testUrl = url.endsWith('/') ? `${url}test-connection/` : `${url}/test-connection/`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
     const response = await fetch(testUrl, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      timeout: 5000, // 5 second timeout
+      signal: controller.signal,
     });
-    return response.ok;
+
+    clearTimeout(timeoutId);
+    const isReachable = response.ok;
+    
+    if (!isReachable) {
+      testedUnreachableUrls.add(url);
+      console.warn(`❌ URL not reachable (${response.status}): ${url}`);
+    } else {
+      console.log(`✅ URL is reachable: ${url}`);
+    }
+    
+    return isReachable;
   } catch (error) {
-    console.warn(`URL ${url} is not reachable:`, error.message);
+    testedUnreachableUrls.add(url);
+    console.warn(`❌ URL test failed (${error.name}): ${url}`);
     return false;
   }
 };
 
 // Get the appropriate API URL based on environment and platform
 export const getApiBaseUrl = async (): Promise<string> => {
-  try {
-    // If we have a cached working URL, use it
-    if (cachedWorkingUrl) {
-      console.log(`Using cached working URL: ${cachedWorkingUrl}`);
-      return formatUrl(String(cachedWorkingUrl));
-    }
+  // If we have a cached working URL, use it
+  if (cachedWorkingUrl) {
+    console.log(`Using cached working URL: ${cachedWorkingUrl}`);
+    return formatUrl(String(cachedWorkingUrl));
+  }
 
-    if (__DEV__) {
-      // Ensure all URLs are strings and properly formatted
-      const urlsToTest = [
+  // In production, always use the production URL
+  if (!__DEV__) {
+    return formatUrl(String(API_CONFIG.production.base || ''));
+  }
+
+  // In development, test URLs in sequence
+  try {
+    // Get all unique URLs to test, with priority to the base URL
+    const urlsToTest = [
+      ...new Set([
         String(API_CONFIG.development.base || '').replace(/\/$/, ''),
         ...API_CONFIG.development.alternatives.map(url => String(url).replace(/\/$/, '')),
-      ].filter(url => url); // Remove any empty strings
+      ].filter(url => url && !testedUnreachableUrls.has(url)))
+    ];
 
-      console.log('Testing API endpoints:', urlsToTest);
+    console.log('Testing API endpoints in sequence:', urlsToTest);
 
-      if (urlsToTest.length === 0) {
-        throw new Error('No valid URLs to test');
-      }
-
-      // Try each URL until we find one that works
-      for (const url of urlsToTest) {
-        if (!url) continue;
-        
-        console.log(`Testing connection to: ${url}`);
-        try {
-          const isReachable = await testUrlReachability(url);
-          
-          if (isReachable) {
-            const formattedUrl = formatUrl(url);
-            console.log(`✅ Found working URL: ${formattedUrl}`);
-            cachedWorkingUrl = formattedUrl;
-            return formattedUrl;
-          }
-          
-          console.warn(`❌ Could not connect to: ${url}`);
-        } catch (error) {
-          console.warn(`❌ Error testing ${url}:`, error.message);
-        }
-      }
-
-      // If we get here, no URLs worked
-      const errorMessage = 'Could not connect to any backend URLs. Please check your network connection and ensure the backend server is running.';
-      console.error(errorMessage);
-      
-      // Fall back to the first URL in the list with a warning
-      const fallbackUrl = urlsToTest[0];
-      console.warn(`⚠️ Falling back to: ${fallbackUrl}`);
-      return fallbackUrl;
+    if (urlsToTest.length === 0) {
+      throw new Error('No valid URLs to test');
     }
 
-    // In production, use the production URL
-    return String(API_CONFIG.production.base).replace(/\/$/, '');
+    // Test each URL in sequence until we find one that works
+    for (const url of urlsToTest) {
+      if (!url) continue;
+      
+      try {
+        const isReachable = await testUrlReachability(url);
+        
+        if (isReachable) {
+          const formattedUrl = formatUrl(url);
+          console.log(`✅ Found working URL: ${formattedUrl}`);
+          cachedWorkingUrl = formattedUrl;
+          
+          // Store in localStorage for persistence across app restarts
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('cachedApiUrl', formattedUrl);
+            } catch (e) {
+              console.warn('Failed to cache API URL in localStorage:', e);
+            }
+          }
+          
+          return formattedUrl;
+        }
+      } catch (error) {
+        console.warn(`Error testing ${url}:`, error.message);
+      }
+    }
+
+    // If we get here, no URLs worked
+    const errorMessage = 'Could not connect to any backend URLs. Please check your network connection and ensure the backend server is running.';
+    console.error(errorMessage);
+    
+    // Fall back to the first URL in the list with a warning
+    const fallbackUrl = urlsToTest[0] || 'http://localhost:8000/api';
+    console.warn(`⚠️ Falling back to: ${fallbackUrl}`);
+    return formatUrl(fallbackUrl);
+    
   } catch (error) {
     console.error('Error in getApiBaseUrl:', error);
-    // Return a default URL if all else fails
-    return 'http://localhost:8000/api';
+    return formatUrl('http://localhost:8000/api');
   }
 };
+
+// Initialize the cached URL from storage if available
+const initializeCachedUrl = async () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const storedUrl = window.localStorage.getItem('cachedApiUrl');
+      if (storedUrl) {
+        cachedWorkingUrl = storedUrl;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load cached API URL:', error);
+  }
+};
+
+// Initialize the cached URL
+initializeCachedUrl();
 
 // Get localhost URL for simulator/emulator testing
 export const getLocalhostUrl = (): string => {
@@ -287,13 +336,47 @@ const parseErrorResponse = async (response: Response): Promise<{ message: string
  * @returns Promise that resolves with the first working URL or rejects if none work
  */
 export const testConnection = async (): Promise<{ url: string, response: any }> => {
+  // If we have a cached working URL, test it first
+  if (cachedWorkingUrl) {
+    try {
+      const testUrl = cachedWorkingUrl.endsWith('/') 
+        ? `${cachedWorkingUrl}test-connection/` 
+        : `${cachedWorkingUrl}/test-connection/`;
+      
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Successfully connected to cached URL: ${cachedWorkingUrl}`);
+        return { url: cachedWorkingUrl, response: data };
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.warn(`⚠️ Cached URL ${cachedWorkingUrl} is no longer reachable:`, errorMessage);
+      // Clear the cache if the URL is no longer reachable
+      cachedWorkingUrl = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cachedApiUrl');
+      }
+    }
+  }
+
+  // If no cached URL or it's no longer working, test all URLs
   const testUrls = [
     API_CONFIG.development.base,
     ...API_CONFIG.development.alternatives,
-  ];
+  ].filter(url => url && !testedUnreachableUrls.has(String(url)));
 
   // Try each URL in sequence
   for (const url of testUrls) {
+    if (!url) continue;
+    
     try {
       console.log(`🔍 Testing connection to: ${url}`);
       const testUrl = url.endsWith('/') ? `${url}test-connection/` : `${url}/test-connection/`;
@@ -307,16 +390,34 @@ export const testConnection = async (): Promise<{ url: string, response: any }> 
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`✅ Successfully connected to: ${url}`);
-        return { url, response: data };
+        const formattedUrl = formatUrl(String(url));
+        
+        // Cache the working URL for future use
+        cachedWorkingUrl = formattedUrl;
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('cachedApiUrl', formattedUrl);
+          } catch (e) {
+            console.warn('Failed to cache API URL in localStorage:', e);
+          }
+        }
+        
+        console.log(`✅ Successfully connected to: ${formattedUrl}`);
+        return { url: formattedUrl, response: data };
+      } else {
+        testedUnreachableUrls.add(String(url));
+        console.warn(`❌ Could not connect to: ${url}`);
       }
     } catch (error: any) {
+      testedUnreachableUrls.add(String(url));
       console.warn(`⚠️ Failed to connect to ${url}:`, error?.message || 'Unknown error');
-      // Continue to the next URL
     }
   }
 
-  throw new Error('Could not connect to any of the backend URLs. Please check your network connection and ensure the backend server is running.');
+  // If we get here, no URLs worked
+  const errorMessage = 'Could not connect to any of the backend URLs. Please check your network connection and ensure the backend server is running.';
+  console.error(errorMessage);
+  throw new Error(errorMessage);
 };
 
 // Default export to satisfy Expo Router

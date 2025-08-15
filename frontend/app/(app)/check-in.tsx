@@ -73,6 +73,16 @@ export default function CheckInScreen() {
       newErrors.purpose = 'Purpose of visit is required';
     }
 
+    // Make photo mandatory
+    if (!formData.photo_data) {
+      newErrors.photo = 'Visitor photo is required';
+    }
+
+    // Make signature mandatory
+    if (!formData.signature_data) {
+      newErrors.signature = 'Visitor signature is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -205,14 +215,14 @@ export default function CheckInScreen() {
           {
             text: 'OK',
             onPress: () => {
-              // Reset form but keep the photo and signature data for potential reuse
+              // Reset all form fields including photo and signature
               setFormData({
                 name: '',
                 email: '',
                 phone: '',
                 purpose: '',
-                photo_data: formData.photo_data, // Keep photo data
-                signature_data: formData.signature_data // Keep signature data
+                photo_data: undefined,
+                signature_data: undefined
               });
               setExistingVisitor(null);
               setErrors({});
@@ -304,14 +314,18 @@ export default function CheckInScreen() {
           </View>
 
           <View style={styles.photoSection}>
+            <Text style={[styles.label, errors.photo && styles.errorText]}>
+              Visitor's Photo *
+              {errors.photo && <Text style={styles.errorText}> - {errors.photo}</Text>}
+            </Text>
             <EnhancedButton
               mode="outlined"
               onPress={takePhoto}
               disabled={loading}
               icon="camera"
-              style={styles.photoButton}
+              style={[styles.photoButton, errors.photo && styles.errorBorder]}
             >
-              {formData.photo_data ? 'Retake Photo' : 'Take Photo (Optional)'}
+              {formData.photo_data ? 'Retake Photo' : 'Take Photo'}
             </EnhancedButton>
             
             {formData.photo_data && (
@@ -327,8 +341,11 @@ export default function CheckInScreen() {
 
           {/* Digital Signature Section */}
           <View style={styles.signatureSection}>
-            <Text style={styles.label}>Visitor's Signature (Optional)</Text>
-            <View style={styles.signatureContainer}>
+            <Text style={[styles.label, errors.signature && styles.errorText]}>
+              Visitor's Signature *
+              {errors.signature && <Text style={styles.errorText}> - {errors.signature}</Text>}
+            </Text>
+            <View style={[styles.signatureContainer, errors.signature && styles.errorBorder]}>
               <SignaturePad 
                 onSave={handleSignatureSaved}
                 height={150}
@@ -426,5 +443,14 @@ const styles = StyleSheet.create({
   checkInButton: {
     borderRadius: borderRadius.sm,
     backgroundColor: colors.primary,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  errorBorder: {
+    borderColor: colors.error,
+    borderWidth: 1,
   },
 });

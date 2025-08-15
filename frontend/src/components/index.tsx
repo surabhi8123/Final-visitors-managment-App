@@ -26,37 +26,39 @@ import {
   shadows, 
   responsive, 
   componentStyles, 
-  isTablet, 
   isMobile,
+  isTablet,
   getResponsiveSpacing,
   getResponsiveTextSize,
+  theme as appTheme,
 } from '../theme';
 
-// Export AuthGuard
+// Export components
 export { default as AuthGuard } from './AuthGuard';
+export { LoadingView } from './LoadingView';
 
 // Status Chip Component
-export const StatusChip = ({ 
-  status, 
-  isActive = false, 
-  size = 'medium' 
-}: { 
-  status: string; 
-  isActive?: boolean; 
+export const StatusChip = ({
+  status,
+  isActive = false,
+  size = 'medium'
+}: {
+  status: string;
+  isActive?: boolean;
   size?: 'small' | 'medium' | 'large';
 }) => {
   const theme = useTheme();
-  
+
   const getStatusColor = () => {
     if (isActive) return colors.success;
     return colors.gray500;
   };
-  
+
   const getStatusBackground = () => {
     if (isActive) return colors.successLight + '20';
     return colors.gray100;
   };
-  
+
   const getSize = () => {
     switch (size) {
       case 'small': return { fontSize: getResponsiveTextSize(responsive.fontSize.xs), padding: getResponsiveSpacing(spacing.xs) };
@@ -64,7 +66,7 @@ export const StatusChip = ({
       default: return { fontSize: getResponsiveTextSize(responsive.fontSize.sm), padding: getResponsiveSpacing(spacing.xs) };
     }
   };
-  
+
   return (
     <View style={[
       styles.statusChip,
@@ -88,11 +90,11 @@ export const StatusChip = ({
 };
 
 // Visitor Card Component
-export const VisitorCard = ({ 
-  visitor, 
-  onCheckOut, 
+export const VisitorCard = ({
+  visitor,
+  onCheckOut,
   onPress,
-  showActions = true 
+  showActions = true
 }: {
   visitor: any;
   onCheckOut?: (id: string) => void;
@@ -102,7 +104,7 @@ export const VisitorCard = ({
   const theme = useTheme();
   const router = useRouter();
   const [photoError, setPhotoError] = useState(false);
-  
+
   const getInitials = (name: string) => {
     if (!name) return 'NA';
     return name
@@ -132,9 +134,9 @@ export const VisitorCard = ({
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } catch {
       return dateString;
@@ -152,7 +154,7 @@ export const VisitorCard = ({
   const getVisitorPhone = () => {
     return visitor.visitor_phone || visitor.phone || 'No phone';
   };
-  
+
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
       <Card style={styles.visitorCard}>
@@ -160,7 +162,7 @@ export const VisitorCard = ({
           <View style={styles.visitorHeader}>
             <View style={styles.visitorInfo}>
               {getVisitorPhoto() && !photoError ? (
-                <Avatar.Image 
+                <Avatar.Image
                   size={isTablet ? 48 : 40}
                   source={{ uri: getVisitorPhoto() }}
                   style={{ backgroundColor: colors.primary }}
@@ -171,7 +173,7 @@ export const VisitorCard = ({
                   }}
                 />
               ) : (
-                <Avatar.Text 
+                <Avatar.Text
                   size={isTablet ? 48 : 40}
                   label={getInitials(getVisitorName())}
                   style={{ backgroundColor: colors.primary }}
@@ -186,32 +188,32 @@ export const VisitorCard = ({
                 </Paragraph>
               </View>
             </View>
-            <StatusChip 
-              status={visitor.is_active ? 'Active' : 'Completed'} 
+            <StatusChip
+              status={visitor.is_active ? 'Active' : 'Completed'}
               isActive={visitor.is_active}
               size={isTablet ? 'medium' : 'small'}
             />
           </View>
-          
+
           <View style={styles.visitorBody}>
             <Paragraph style={styles.visitorPurpose} numberOfLines={2}>
               <RNText style={styles.label}>Purpose: </RNText>
               {visitor.purpose || 'No purpose specified'}
             </Paragraph>
-            
+
             <View style={styles.visitorTimeContainer}>
               <Paragraph style={styles.visitorTime}>
                 <RNText style={styles.label}>Check-in: </RNText>
                 {formatDate(visitor.check_in_time)}
               </Paragraph>
-              
+
               {visitor.check_out_time && (
                 <Paragraph style={styles.visitorTime}>
                   <RNText style={styles.label}>Check-out: </RNText>
                   {formatDate(visitor.check_out_time)}
                 </Paragraph>
               )}
-              
+
               {visitor.duration_formatted && visitor.duration_formatted !== 'N/A' && (
                 <Paragraph style={styles.visitorTime}>
                   <RNText style={styles.label}>Duration: </RNText>
@@ -220,7 +222,7 @@ export const VisitorCard = ({
               )}
             </View>
           </View>
-          
+
           {showActions && visitor.is_active && onCheckOut && (
             <View style={styles.visitorActions}>
               <View style={styles.visitorActionButtons}>
@@ -229,9 +231,9 @@ export const VisitorCard = ({
                   onPress={(e) => {
                     e.stopPropagation();
                     const signatureData = visitor.signature_data || visitor.signature;
-                    const signatureUrl = visitor.signature_url || 
+                    const signatureUrl = visitor.signature_url ||
                       (signatureData && signatureData.startsWith('http') ? signatureData : null);
-                    
+
                     router.push({
                       pathname: "/visitor-detail",
                       params: {
@@ -279,26 +281,14 @@ export const VisitorCard = ({
   );
 };
 
-// Loading Component
-export const LoadingView = ({ message = 'Loading...' }: { message?: string }) => {
-  const theme = useTheme();
-  
-  return (
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={theme.colors.primary} />
-      <Paragraph style={styles.loadingText}>{message}</Paragraph>
-    </View>
-  );
-};
-
 // Empty State Component
-export const EmptyState = ({ 
-  title, 
-  message, 
-  icon = 'inbox-outline' 
-}: { 
-  title: string; 
-  message: string; 
+export const EmptyState = ({
+  title,
+  message,
+  icon = 'inbox-outline'
+}: {
+  title: string;
+  message: string;
   icon?: string;
 }) => {
   return (
@@ -385,11 +375,34 @@ export const EnhancedTextInput = ({
         error={!!error}
         disabled={disabled}
         mode="outlined"
-        style={[styles.enhancedInput, style]}
-        contentStyle={styles.enhancedInputContent}
-        outlineStyle={styles.enhancedInputOutline}
+        style={[{
+          fontSize: getResponsiveTextSize(responsive.fontSize.md),
+          minHeight: 56, // Increased minimum height for better touch targets
+        }, style]}
+        contentStyle={{
+          fontSize: getResponsiveTextSize(responsive.fontSize.md),
+        }}
+        outlineStyle={{
+          borderRadius: borderRadius.sm,
+          borderWidth: 1,
+        }}
+        theme={{
+          ...theme,
+          colors: {
+            ...theme.colors,
+            primary: colors.primary,
+            placeholder: colors.textTertiary,
+            text: colors.textPrimary,
+            onSurface: disabled ? colors.textDisabled : colors.textPrimary,
+          },
+        }}
         {...props}
       />
+      {error && (
+        <RNText style={styles.errorText}>
+          {error}
+        </RNText>
+      )}
     </View>
   );
 };
@@ -401,6 +414,7 @@ export const EnhancedButton = ({
   loading = false,
   disabled = false,
   style,
+  labelStyle,
   ...props 
 }: any) => {
   return (
@@ -408,9 +422,28 @@ export const EnhancedButton = ({
       mode={mode}
       loading={loading}
       disabled={disabled}
-      style={[styles.enhancedButton, style]}
-      contentStyle={styles.enhancedButtonContent}
-      labelStyle={styles.enhancedButtonLabel}
+      style={[{
+        borderRadius: borderRadius.sm,
+        marginVertical: getResponsiveSpacing(spacing.sm),
+      }, style]}
+      contentStyle={{
+        height: responsive.buttonHeight,
+      }}
+      labelStyle={[{
+        fontSize: getResponsiveTextSize(responsive.fontSize.md),
+        fontWeight: '500',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+      }, labelStyle]}
+      theme={{
+        ...appTheme,
+        colors: {
+          ...appTheme.colors,
+          primary: colors.primary,
+          onPrimary: colors.white,
+          onSurface: disabled ? colors.textDisabled : colors.primary,
+        },
+      }}
       {...props}
     >
       {children}
@@ -509,6 +542,12 @@ const styles = StyleSheet.create({
   },
   actionButtonLabel: {
     color: colors.primary,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: getResponsiveTextSize(responsive.fontSize.sm),
+    marginTop: 2,
+    marginLeft: 4,
   },
   visitorTimeContainer: {
     flexDirection: isTablet ? 'row' : 'column',

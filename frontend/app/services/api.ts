@@ -346,7 +346,7 @@ export const visitorAPI = {
   checkOut: async (data: CheckOutData): Promise<CheckOutResponse> => {
     return withApi(async (api) => {
       try {
-        const response = await api.post('/visitors/check-out/', data);
+        const response = await api.post('/visitors/check_out/', data);
         return response.data;
       } catch (error) {
         console.error('❌ Check-out error:', error);
@@ -389,34 +389,113 @@ export const visitorAPI = {
     });
   },
 
-  // Export visit history to Excel
+  // Export visit history to Word document with real data
   exportVisitHistory: async (filters?: VisitHistoryFilters): Promise<{ message: string; filename: string; data: string; count: number }> => {
     return withApi(async (api) => {
       try {
+        // First, fetch the visit history data
+        const historyResponse = await visitorAPI.getVisitHistory(filters);
+        const visits = historyResponse?.visits || [];
+        
+        // Check if we have data to export
+        if (visits.length === 0) {
+          throw new Error('No visit history data available for the selected filters');
+        }
+        
+        // Create a simple HTML table with the visit data
+        const tableRows = visits.map(visit => {
+          return `
+            <tr>
+              <td>${visit.visitor_name || 'N/A'}</td>
+              <td>${visit.company || 'N/A'}</td>
+              <td>${visit.purpose || 'N/A'}</td>
+              <td>${visit.check_in ? new Date(visit.check_in).toLocaleString() : 'N/A'}</td>
+              <td>${visit.check_out ? new Date(visit.check_out).toLocaleString() : 'In Progress'}</td>
+              <td>${visit.status || 'Unknown'}</td>
+            </tr>
+          `;
+        }).join('');
+        
+        // Create a simple HTML document with the table
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Visit History Export</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; }
+              h1 { color: #2c3e50; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              tr:nth-child(even) { background-color: #f9f9f9; }
+            </style>
+          </head>
+          <body>
+            <h1>Visit History</h1>
+            <p>Generated on: ${new Date().toLocaleString()}</p>
+            <p>Total Records: ${visits.length}</p>
+            
+            <table>
+              <thead>
+                <tr>
+                  <th>Visitor Name</th>
+                  <th>Company</th>
+                  <th>Purpose</th>
+                  <th>Check-In</th>
+                  <th>Check-Out</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `;
+        
+        // Prepare query parameters for the export
         const params = new URLSearchParams();
+        
+        // Add filter parameters if they exist
         if (filters) {
           if (filters.startDate) params.append('start_date', filters.startDate);
           if (filters.endDate) params.append('end_date', filters.endDate);
-          if (filters.visitorName) params.append('visitor_name', filters.visitorName);
+          if (filters.visitorName) params.append('name', filters.visitorName);
           if (filters.hostName) params.append('host_name', filters.hostName);
         }
         
-        const response = await api.get(`/visitors/export/`, {
+        // Add the HTML content as a parameter
+        params.append('html', htmlContent);
+        
+        // Make GET request to export endpoint
+        const response = await api.get('/visitors/export/', {
           params,
           responseType: 'blob',
         });
         
-        // Extract filename from content-disposition header
-        const contentDisposition = response.headers['content-disposition'];
-        const filename = contentDisposition
-          ? contentDisposition.split('filename=')[1].replace(/"/g, '')
-          : `visitors_${new Date().toISOString().split('T')[0]}.xlsx`;
+        // Generate a filename with date
+        const dateStr = new Date().toISOString().split('T')[0];
+        const filename = `visit_history_${dateStr}.docx`;
+        
+        // Convert the blob to base64 for the share function
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64String = (reader.result as string).split(',')[1];
+            resolve(base64String);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(new Blob([response.data]));
+        });
         
         return {
           message: 'Export successful',
           filename,
-          data: response.data,
-          count: parseInt(response.headers['x-total-count'] || '0', 10),
+          data: base64Data,
+          count: visits.length,
         };
       } catch (error) {
         console.error('❌ Export visit history error:', error);
