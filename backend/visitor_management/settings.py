@@ -66,18 +66,16 @@ WSGI_APPLICATION = 'visitor_management.wsgi.application'
 
 # Database configuration
 DATABASES = {
-    'default': dj_database_url.config(
-        default='sqlite:///db.sqlite3',
-        conn_max_age=600,
-        conn_health_checks=True,
-        ssl_require=False
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    }
 }
 
-# Optional: Uncomment to use PostgreSQL if needed
-# DATABASE_URL = config('DATABASE_URL', default='sqlite:///db.sqlite3')
-# if DATABASE_URL.startswith('postgres'):
-#     DATABASES = {'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)}
+# Use PostgreSQL if DATABASE_URL is set in environment
+if 'DATABASE_URL' in os.environ:
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
