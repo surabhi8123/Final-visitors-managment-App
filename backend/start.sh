@@ -11,5 +11,8 @@ pip install -r requirements.txt
 # Run database migrations
 python manage.py migrate --noinput
 
+# Collect static files
+python manage.py collectstatic --noinput
+
 # Start Gunicorn
 exec python manage.py runserver 0.0.0.0:10000

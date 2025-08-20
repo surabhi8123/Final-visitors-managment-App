@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: visitor-management
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "cd backend && ./start.sh"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.7
+      - key: DJANGO_SETTINGS_MODULE
+        value: visitor_management.settings
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: DEBUG
+        value: "False"
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "True"
+    plan: free
+    numInstances: 1
