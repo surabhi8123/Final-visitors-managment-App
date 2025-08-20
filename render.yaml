@@ -2,9 +2,9 @@ services:
   - type: web
     name: visitor-management
     env: python
-    workingDir: /opt/render/project/src/backend
+    workingDir: ./backend
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn visitor_management.wsgi:application"
+    startCommand: "gunicorn visitor_management.wsgi:application --chdir backend"
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.7
