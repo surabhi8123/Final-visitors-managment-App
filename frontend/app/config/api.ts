@@ -44,7 +44,7 @@ export const API_CONFIG = {
     ) as string[]
   },
   production: {
-    base: formatUrl(process.env.EXPO_PUBLIC_API_URL || 'https://your-production-api.com/api') || '',
+    base: formatUrl(process.env.EXPO_PUBLIC_API_URL || 'https://final-visitors-managment-app.vercel.app/api') || '',
   },
 };
 
@@ -105,6 +105,15 @@ export const getApiBaseUrl = async (): Promise<string> => {
   if (cachedWorkingUrl) {
     console.log(`Using cached working URL: ${cachedWorkingUrl}`);
     return formatUrl(String(cachedWorkingUrl));
+  }
+
+  // If EXPO_PUBLIC_API_URL is provided, always prefer it (works in dev and prod)
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && String(envUrl).trim().length > 0) {
+    const formattedEnv = formatUrl(String(envUrl));
+    console.log('Using EXPO_PUBLIC_API_URL:', formattedEnv);
+    cachedWorkingUrl = formattedEnv;
+    return formattedEnv;
   }
 
   // In production, always use the production URL

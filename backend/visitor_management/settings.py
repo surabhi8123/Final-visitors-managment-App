@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables with defaults
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-7c42b91109e6bf35d04fcf5be4b9607080e0bd4e722ad32aa1e805162816d548')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.vercel.app', cast=Csv())
 
 # Application definition
 INSTALLED_APPS = [
@@ -146,10 +146,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
-if CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS = CORS_ALLOWED_ORIGINS
+# For now, allow all origins to simplify cross-origin requests during integration.
+# You can lock this down later to specific domains.
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Explicit list still useful in case we turn off the global flag later
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:19006",
     "http://127.0.0.1:19006",
@@ -163,8 +164,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.1.29:3000",
     "http://localhost:8081",
     "http://127.0.0.1:8000",
-    "http://0.0.0.0:8000"
+    "http://0.0.0.0:8000",
+    "https://final-visitors-managment-app.vercel.app",
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^http://localhost:\d+$", r"^http://127\.0\.0\.1:\d+$"]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
 CORS_ALLOW_METHODS = [
@@ -210,6 +213,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'http://10.0.2.2:8000',
     'http://192.168.1.29:8000',
+    'https://final-visitors-managment-app.vercel.app',
 ]
 
 # Allow all hosts for production
@@ -218,3 +222,36 @@ SESSION_COOKIE_SECURE = True
 # Allow all hosts for development
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
+
+# Vercel-specific host/origin handling
+vercel_host = os.environ.get('VERCEL_URL')
+if vercel_host:
+    # Ensure lists are present
+    try:
+        ALLOWED_HOSTS
+    except NameError:
+        ALLOWED_HOSTS = []
+
+    try:
+        CSRF_TRUSTED_ORIGINS
+    except NameError:
+        CSRF_TRUSTED_ORIGINS = []
+
+    try:
+        CORS_ALLOWED_ORIGINS
+    except NameError:
+        CORS_ALLOWED_ORIGINS = []
+
+    # Normalize and append
+    if vercel_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS += [vercel_host, '.vercel.app']
+
+    vercel_https = f"https://{vercel_host}"
+    if vercel_https not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(vercel_https)
+    if vercel_https not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(vercel_https)
+
+if 'VERCEL_URL' in os.environ:
+    CSRF_TRUSTED_ORIGINS.append(os.environ['VERCEL_URL'])
+    CORS_ALLOWED_ORIGINS.append(os.environ['VERCEL_URL'])

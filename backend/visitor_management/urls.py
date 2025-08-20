@@ -1,6 +1,7 @@
 """
 URL configuration for visitor_management project.
 """
+import os
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -10,6 +11,9 @@ from visitors.views import home, admin_login, admin_dashboard, admin_logout
 urlpatterns = [
     path('', home, name='home'),
     path('admin/', admin.site.urls),
+    # Mount API at root for platforms that strip '/api' (e.g., Vercel rewrites)
+    path('', include('visitors.urls')),
+    # Also mount under '/api/' for local dev and compatibility
     path('api/', include('visitors.urls')),
     path('admin-login/', admin_login, name='admin_login'),
     path('admin-dashboard/', admin_dashboard, name='admin_dashboard'),
@@ -18,4 +22,4 @@ urlpatterns = [
 
 # Serve media files in development
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) 
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
