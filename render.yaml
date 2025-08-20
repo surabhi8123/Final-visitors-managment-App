@@ -2,12 +2,14 @@ services:
   - type: web
     name: visitor-management-backend
     env: python
+    region: singapore  # Choose a region closer to your users
     buildCommand: |
-      cd /opt/render/project/src/backend &&
+      echo "-----> Installing dependencies"
       pip install -r requirements.txt
     startCommand: |
-      cd /opt/render/project/src/backend &&
-      python manage.py migrate &&
+      echo "-----> Running migrations"
+      python manage.py migrate --noinput
+      echo "-----> Starting application"
       gunicorn visitor_management.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
@@ -24,6 +26,8 @@ services:
         value: "True"
       - key: DISABLE_COLLECTSTATIC
         value: "1"
+      - key: PYTHONUNBUFFERED
+        value: "1"
     plan: free
 
 databases:
@@ -31,3 +35,4 @@ databases:
     databaseName: visitor_management
     user: postgres
     plan: free
+    region: singapore  # Must match the web service region

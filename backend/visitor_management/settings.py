@@ -64,19 +64,23 @@ WSGI_APPLICATION = 'visitor_management.wsgi.application'
 # Database Configuration
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# Database configuration - PostgreSQL
+# Default to SQLite for local development
 DATABASES = {
-    'default': dj_database_url.config(
-        default='postgresql://postgres:postgres@localhost:5432/visitor_management',
-        conn_max_age=600,
-        conn_health_checks=True,
-        ssl_require=not DEBUG
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+    }
 }
 
-# For production on Render
+# Use PostgreSQL on Render
 if 'RENDER' in os.environ:
-    DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
+    # Render automatically sets the DATABASE_URL environment variable
+    import dj_database_url
+    DATABASES['default'] = dj_database_url.config(
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=True
+    )
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
