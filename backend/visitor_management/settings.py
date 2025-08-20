@@ -73,14 +73,28 @@ DATABASES = {
 }
 
 # Use PostgreSQL on Render
-if 'RENDER' in os.environ:
-    # Render automatically sets the DATABASE_URL environment variable
+if 'RENDER' in os.environ or 'DATABASE_URL' in os.environ:
     import dj_database_url
+    
+    # Parse database configuration from $DATABASE_URL
     DATABASES['default'] = dj_database_url.config(
+        default='postgresql://postgres:postgres@localhost/visitor_management',
         conn_max_age=600,
         conn_health_checks=True,
         ssl_require=True
     )
+    
+    # Ensure PostgreSQL is used
+    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+    
+    # Add connection timeout and retry settings
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 5,  # 5 seconds connection timeout
+        'keepalives': 1,       # Enable TCP keep-alive
+        'keepalives_idle': 30, # Idle time before sending keepalive
+        'keepalives_interval': 5,  # Interval between keepalives
+        'keepalives_count': 5,     # Number of keepalives before closing
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
