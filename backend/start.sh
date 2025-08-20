@@ -2,5 +2,14 @@
 # Exit on error
 set -o errexit
 
+# Change to the backend directory
+cd "$(dirname "$0")"
+
+# Install dependencies if needed
+pip install -r requirements.txt
+
+# Run database migrations
+python manage.py migrate --noinput
+
 # Start Gunicorn
-python manage.py runserver 0.0.0.0:10000
+exec python manage.py runserver 0.0.0.0:10000
