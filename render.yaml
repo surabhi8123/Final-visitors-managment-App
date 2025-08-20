@@ -2,7 +2,7 @@ services:
   - type: web
     name: visitor-management
     env: python
-    buildCommand: "cd backend && pip install -r requirements.txt"
+    buildCommand: "chmod +x render-start.sh && ./render-start.sh"
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.7
