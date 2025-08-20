@@ -4,10 +4,10 @@ services:
     env: python
     buildCommand: |
       cd /opt/render/project/src/backend &&
-      pip install -r requirements.txt &&
-      python manage.py migrate
+      pip install -r requirements.txt
     startCommand: |
       cd /opt/render/project/src/backend &&
+      python manage.py migrate &&
       gunicorn visitor_management.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
@@ -22,6 +22,12 @@ services:
         value: "*"
       - key: CORS_ALLOW_ALL_ORIGINS
         value: "True"
-      - key: DATABASE_URL
-        value: "sqlite:///opt/render/project/src/backend/db.sqlite3"
+      - key: DISABLE_COLLECTSTATIC
+        value: "1"
+    plan: free
+
+databases:
+  - name: visitor-management-db
+    databaseName: visitor_management
+    user: postgres
     plan: free
