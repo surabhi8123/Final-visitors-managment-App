@@ -1,8 +1,9 @@
 services:
   - type: web
-    name: visitor-management
+    name: visitor-management-backend
     env: python
-    buildCommand: "chmod +x render-start.sh && ./render-start.sh"
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && gunicorn visitor_management.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.7
@@ -10,12 +11,10 @@ services:
         value: visitor_management.settings
       - key: SECRET_KEY
         generateValue: true
-      - key: WEB_CONCURRENCY
-        value: 4
-      - key: ALLOWED_HOSTS
-        value: "*"
       - key: DEBUG
         value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
       - key: CORS_ALLOW_ALL_ORIGINS
         value: "True"
     plan: free
