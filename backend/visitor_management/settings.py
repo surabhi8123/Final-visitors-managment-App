@@ -4,18 +4,17 @@ Django settings for visitor_management project.
 
 import os
 from pathlib import Path
-from decouple import config
+from decouple import config, Csv
+import dj_database_url
+from urllib.parse import urlparse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='7c42b91109e6bf35d04fcf5be4b9607080e0bd4e722ad32aa1e805162816d548')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
-
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.19', '192.168.1.29', '0.0.0.0']
+# Load environment variables with defaults
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-7c42b91109e6bf35d04fcf5be4b9607080e0bd4e722ad32aa1e805162816d548')
+DEBUG = config('DEBUG', default=False, cast=bool)
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 # Application definition
 INSTALLED_APPS = [
@@ -62,15 +61,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'visitor_management.wsgi.application'
 
-# Database
+# Database Configuration
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# Database configuration
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///db.sqlite3',
+        conn_max_age=600,
+        conn_health_checks=True,
+        ssl_require=False
+    )
 }
+
+# Optional: Uncomment to use PostgreSQL if needed
+# DATABASE_URL = config('DATABASE_URL', default='sqlite:///db.sqlite3')
+# if DATABASE_URL.startswith('postgres'):
+#     DATABASES = {'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -101,7 +108,11 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/4.2/howto/static-files/
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Media files
@@ -114,20 +125,24 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=Csv())
+if CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS = CORS_ALLOWED_ORIGINS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:19006",
     "http://127.0.0.1:19006",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-            "http://192.168.1.19:19006",
-        "http://192.168.1.19:8081",
-        "http://192.168.1.19:3000",
+    "http://10.0.2.2:8000",  # Android emulator special alias for localhost
     "http://192.168.1.19:19006",
     "http://192.168.1.19:8081",
     "http://192.168.1.19:3000",
+    "http://192.168.1.29:8000",
+    "http://192.168.1.29:3000",
     "http://localhost:8081",
-    "http://127.0.0.1:8081",
+    "http://127.0.0.1:8000",
+    "http://0.0.0.0:8000"
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
@@ -138,6 +153,19 @@ CORS_ALLOW_METHODS = [
     'PATCH',
     'POST',
     'PUT',
+]
+
+# Allow all headers for development
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 # REST Framework settings
@@ -151,6 +179,21 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Security headers for development
-SECURE_CROSS_ORIGIN_OPENER_POLICY = None
-SECURE_REFERRER_POLICY = None 
+# Security headers for production
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# For production only - enable CSRF protection
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://10.0.2.2:8000',
+    'http://192.168.1.29:8000',
+]
+
+# Allow all hosts for production
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+# Allow all hosts for development
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False

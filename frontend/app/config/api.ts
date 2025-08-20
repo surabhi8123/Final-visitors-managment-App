@@ -9,6 +9,14 @@ const isIOS = Platform.OS === 'ios';
 // Get the local development server IP from environment or use default
 const LOCAL_IP = '192.168.1.29'; // Your computer's local IP address
 
+// Get the local IP from environment or use default
+const getLocalIp = () => {
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    return window.location.hostname;
+  }
+  return LOCAL_IP;
+};
+
 // Simple URL formatter that ensures proper URL format
 const formatUrl = (url: string | undefined): string => {
   if (!url) return '';
@@ -22,17 +30,18 @@ const formatUrl = (url: string | undefined): string => {
 export const API_CONFIG = {
   // Development settings
   development: {
-    // For Android emulator, use 10.0.2.2 to access host machine
-    // For iOS simulator, use localhost
-    // For physical devices, use the computer's local IP
-    base: isAndroid ? 'http://10.0.2.2:8000/api' : `http://${LOCAL_IP}:8000/api`,
+    base: isAndroid ? 'http://10.0.2.2:8000/api' : `http://${getLocalIp()}:8000/api`,
     alternatives: [
       'http://10.0.2.2:8000/api',    // Android emulator
       'http://localhost:8000/api',    // iOS simulator and web
-      `http://${LOCAL_IP}:8000/api`,  // LAN IP for physical devices
-      'http://127.0.0.1:8000/api',    // Alternative localhost
-      'http://192.168.1.19:8000/api'  // Additional LAN IP (fixed port number)
-    ].filter(Boolean) as string[]
+      `http://${getLocalIp()}:8000/api`,  // Current host IP
+      'http://127.0.0.1:8000/api',    // Localhost
+      'http://192.168.1.29:8000/api', // Specific LAN IP
+      'http://192.168.1.19:8000/api', // Additional LAN IP
+      'http://0.0.0.0:8000/api'       // All network interfaces
+    ].filter((url, index, self) => 
+      url && self.indexOf(url) === index
+    ) as string[]
   },
   production: {
     base: formatUrl(process.env.EXPO_PUBLIC_API_URL || 'https://your-production-api.com/api') || '',
@@ -190,9 +199,10 @@ export const getAlternativeUrls = (): string[] => {
 };
 
 // API timeout settings
-export const API_TIMEOUT = 20000; // 20 seconds
-const MAX_RETRIES = 3; // Maximum number of retry attempts
+export const API_TIMEOUT = 30000; // 30 seconds
+const MAX_RETRIES = 5; // Increased from 3 to 5 for better reliability
 const RETRY_DELAY = 1000; // Initial delay between retries in ms
+const MAX_RETRY_DELAY = 5000; // Maximum delay between retries
 
 // Log the current environment and API configuration
 console.log('API Configuration:', {
@@ -229,6 +239,10 @@ export const fetchWithRetry = async (
   delay = RETRY_DELAY,
   attempt = 1
 ): Promise<Response> => {
+  // Ensure URL is properly formatted
+  if (!url.startsWith('http') && !url.startsWith('/')) {
+    url = `/${url}`;
+  }
   const isAbsoluteUrl = url.startsWith('http');
   
   try {
