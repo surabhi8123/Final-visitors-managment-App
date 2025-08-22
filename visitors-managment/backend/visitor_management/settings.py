@@ -73,13 +73,14 @@ DATABASES = {
     }
 }
 
-# Use PostgreSQL on Render/Railway
-if 'RENDER' in os.environ or 'DATABASE_URL' in os.environ:
+# Use PostgreSQL when DATABASE_URL is available (Render/Railway/Production)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
     import dj_database_url
     
     # Parse database configuration from $DATABASE_URL
     DATABASES['default'] = dj_database_url.config(
-        default='postgresql://postgres:postgres@localhost/visitor_management',
+        default=DATABASE_URL,
         conn_max_age=0,  # Disable connection pooling to avoid stale connections
         conn_health_checks=True,
         ssl_require=False  # Let dj_database_url handle SSL automatically
@@ -88,17 +89,17 @@ if 'RENDER' in os.environ or 'DATABASE_URL' in os.environ:
     # Ensure PostgreSQL is used
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
     
-    # Railway-optimized connection settings
+    # Optimized connection settings for cloud databases
     DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 30,     # Extended timeout for Railway
+        'connect_timeout': 30,     # Extended timeout
         'keepalives': 1,           # Enable TCP keep-alive
-        'keepalives_idle': 30,     # Shorter idle time for Railway
+        'keepalives_idle': 30,     # Shorter idle time
         'keepalives_interval': 10, # More frequent keepalives
         'keepalives_count': 3,     # Close after 3 failed keepalives
         'sslmode': 'prefer',       # Prefer SSL but don't require it
     }
     
-    # Force connection max age to 0 for Railway stability
+    # Force connection max age to 0 for stability
     DATABASES['default']['CONN_MAX_AGE'] = 0
 
 # Password validation
