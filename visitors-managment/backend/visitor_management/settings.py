@@ -74,8 +74,13 @@ DATABASES = {
 }
 
 # Use PostgreSQL when DATABASE_URL is available (Render/Railway/Production)
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
+print(f"DEBUG: DATABASE_URL = {DATABASE_URL}")
+print(f"DEBUG: POSTGRES_URL = {os.environ.get('POSTGRES_URL')}")
+print(f"DEBUG: Environment variables: {[k for k in os.environ.keys() if 'DATA' in k or 'POSTGRES' in k]}")
+
 if DATABASE_URL:
+    print("DEBUG: Using PostgreSQL database from DATABASE_URL")
     import dj_database_url
     
     # Parse database configuration from $DATABASE_URL
@@ -85,6 +90,8 @@ if DATABASE_URL:
         conn_health_checks=True,
         ssl_require=False  # Let dj_database_url handle SSL automatically
     )
+    
+    print(f"DEBUG: Parsed database config: {DATABASES['default']}")
     
     # Ensure PostgreSQL is used
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
@@ -101,6 +108,8 @@ if DATABASE_URL:
     
     # Force connection max age to 0 for stability
     DATABASES['default']['CONN_MAX_AGE'] = 0
+else:
+    print("DEBUG: No database URL found, using SQLite")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
