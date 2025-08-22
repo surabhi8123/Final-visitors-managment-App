@@ -1,0 +1,13 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Admin Dashboard - ThorSignia{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="logo">ThorSignia</div>
+    <div class="welcome-text">Welcome, Admin</div>
+    <p>You have successfully logged into the ThorSignia Visitors Management System.</p>
+    
+    <a href="{% url 'admin_logout' %}" class="logout-btn">Logout</a>
+</div>
+{% endblock %} 
