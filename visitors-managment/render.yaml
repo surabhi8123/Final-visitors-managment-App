@@ -10,7 +10,9 @@ services:
       - key: DJANGO_SETTINGS_MODULE
         value: visitor_management.settings
       - key: DATABASE_URL
-        value: postgresql://postgres:uEutQJRqyRbgOlzwhsGGgczYXaeBqgxI@yamabiko.proxy.rlwy.net:14599/railway
+        fromDatabase:
+          name: visitor-management-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: WEB_CONCURRENCY
@@ -21,3 +23,9 @@ services:
         value: "True"
     plan: free
     numInstances: 1
+
+databases:
+  - name: visitor-management-db
+    databaseName: visitor_management
+    user: visitor_user
+    plan: free
