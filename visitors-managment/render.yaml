@@ -3,7 +3,7 @@ services:
     name: visitor-management
     env: python
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "cd backend && ./start.sh"
+    startCommand: "cd backend && python wait_for_railway.py && python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn visitor_management.wsgi:application --bind 0.0.0.0:$PORT --workers 4"
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.7
