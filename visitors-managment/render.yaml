@@ -3,32 +3,7 @@ services:
     name: visitor-management
     env: python
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: cd backend && python -c "
-import os, sys, time, django;
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'visitor_management.settings');
-django.setup();
-from django.db import connection;
-max_attempts = 30;
-attempt = 1;
-while attempt <= max_attempts:
-    try:
-        cursor = connection.cursor();
-        cursor.execute('SELECT version()');
-        db_version = cursor.fetchone()[0];
-        cursor.close();
-        print(f'✓ Railway PostgreSQL connected: {db_version[:50]}...');
-        print('✓ Railway database is ready!');
-        break;
-    except Exception as e:
-        print(f'✗ Railway connection failed: {e}');
-        if attempt == max_attempts:
-            print('✗ Railway database connection failed after all attempts');
-            sys.exit(1);
-        sleep_time = 5 if attempt <= 3 else 10 if attempt <= 10 else 20;
-        print(f'Retrying in {sleep_time}s...');
-        time.sleep(sleep_time);
-        attempt += 1;
-" && python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn visitor_management.wsgi:application --bind 0.0.0.0:$PORT --workers 4
+    startCommand: "cd backend && python -c \"import os,sys,time,django; os.environ.setdefault('DJANGO_SETTINGS_MODULE','visitor_management.settings'); django.setup(); from django.db import connection; [connection.cursor().execute('SELECT 1') for _ in range(1) if True]; print('Railway DB ready')\" && python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn visitor_management.wsgi:application --bind 0.0.0.0:$PORT --workers 4"
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.7
