@@ -5,53 +5,54 @@ set -o errexit
 # Change to the backend directory
 cd "$(dirname "$0")"
 
-# Wait for database with fallback retry logic
-echo "Waiting for database to become available..."
-if python manage.py wait_for_db --timeout=120 2>/dev/null; then
-    echo "Database ready via wait_for_db command"
-else
-    echo "wait_for_db command not found, using fallback retry logic..."
+echo "=== Starting Visitor Management Backend ==="
+echo "Timestamp: $(date)"
+
+# Database connection retry with simple loop
+echo "Checking database connectivity..."
+max_attempts=60
+attempt=1
+
+while [ $attempt -le $max_attempts ]; do
+    echo "Database connection attempt $attempt/$max_attempts..."
     
-    # Fallback: Simple retry loop for database connection
-    max_attempts=30
-    attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        echo "Database connection attempt $attempt/$max_attempts..."
-        
-        if python -c "
-import os, django, sys
+    if python -c "
+import os
+import django
+import sys
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'visitor_management.settings')
 django.setup()
 from django.db import connection
 try:
-    with connection.cursor() as cursor:
-        cursor.execute('SELECT 1')
-    print('Database connection successful')
-    sys.exit(0)
+    cursor = connection.cursor()
+    cursor.execute('SELECT 1')
+    cursor.close()
+    print('✓ Database connection successful')
 except Exception as e:
-    print(f'Database connection failed: {e}')
+    print(f'✗ Database connection failed: {e}')
     sys.exit(1)
-" 2>/dev/null; then
-            echo "Database is ready!"
-            break
-        fi
-        
-        if [ $attempt -eq $max_attempts ]; then
-            echo "Failed to connect to database after $max_attempts attempts"
-            exit 1
-        fi
-        
-        if [ $attempt -le 5 ]; then
-            sleep_time=$((2 ** (attempt - 1)))
-        else
-            sleep_time=32
-        fi
-        echo "Waiting ${sleep_time}s before retry..."
-        sleep $sleep_time
-        attempt=$((attempt + 1))
-    done
-fi
+"; then
+        echo "✓ Database is ready!"
+        break
+    fi
+    
+    if [ $attempt -eq $max_attempts ]; then
+        echo "✗ Database connection failed after $max_attempts attempts"
+        echo "Please check your database service status in Render dashboard"
+        exit 1
+    fi
+    
+    # Progressive backoff: 2s, 4s, 8s, 16s, then 30s
+    if [ $attempt -le 4 ]; then
+        sleep_time=$((2 ** $attempt))
+    else
+        sleep_time=30
+    fi
+    
+    echo "Waiting ${sleep_time}s before next attempt..."
+    sleep $sleep_time
+    attempt=$((attempt + 1))
+done
 
 # Run database migrations
 echo "Running database migrations..."
@@ -62,7 +63,7 @@ echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
 echo "Starting Gunicorn server..."
-"${PYTHON:-python}" -m gunicorn visitor_management.wsgi:application \
+exec python -m gunicorn visitor_management.wsgi:application \
   --bind 0.0.0.0:"${PORT:-8000}" \
   --workers "${WEB_CONCURRENCY:-4}" \
   --timeout 120 \
