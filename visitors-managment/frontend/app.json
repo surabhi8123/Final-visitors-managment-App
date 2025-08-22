@@ -1,0 +1,79 @@
+{
+  "expo": {
+    "name": "ThorSignia Visitor Management System",
+    "slug": "visitor-management",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "visitormanagement",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.visitormanagement.app",
+      "requireFullScreen": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to camera to take visitor photos for check-in purposes.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to photo library to select visitor photos for check-in purposes.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save visitor photos to your photo library.",
+        "NSMicrophoneUsageDescription": "This app needs access to microphone for video recording features.",
+        "NSLocationWhenInUseUsageDescription": "This app may use location for visitor tracking purposes.",
+        "UIBackgroundModes": ["fetch", "remote-notification"],
+        "UIRequiresPersistentWiFi": true,
+        "UIStatusBarStyle": "light-content",
+        "UIViewControllerBasedStatusBarAppearance": false
+      },
+      "buildNumber": "1",
+      "deploymentTarget": "13.0"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.visitormanagement.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "screenOrientation": "portrait"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "viewport": "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take visitor photos.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for video recording."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photo library to select visitor photos.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take visitor photos."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photo library.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your photo library.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
+    ]
+  }
+} 

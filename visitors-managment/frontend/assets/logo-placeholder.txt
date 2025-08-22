@@ -1,0 +1,14 @@
+THORSIGNIA LOGO PLACEHOLDER
+
+To add your ThorSignia logo:
+
+1. Create a PNG image with your ThorSignia logo
+2. Save it as "logo.png" in this folder
+3. The logo should include:
+   - Triangular graphic elements (lime green, teal, dark gray)
+   - "Thor Signia" text (lime green "Thor", teal "Signia")
+   - "Committed Towards Progress" tagline (dark gray)
+   - White background
+   - Recommended size: 240x160px
+
+For now, the app displays "VS" initials in a rectangular container. 
