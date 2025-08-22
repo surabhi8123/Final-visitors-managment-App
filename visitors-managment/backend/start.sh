@@ -1,20 +1,24 @@
-#!/usr/bin/env bash
-# Exit on error
-set -o errexit
-
-# Change to the backend directory
-cd "$(dirname "$0")"
+#!/bin/bash
+# Railway-optimized startup script
+set -e
 
 echo "=== Starting Visitor Management Backend ==="
 echo "Timestamp: $(date)"
 
-# Database connection retry with simple loop
-echo "Checking database connectivity..."
-max_attempts=60
+# Install requirements (in case of cache issues)
+pip install -r requirements.txt
+
+# Wait for Railway database to be ready
+echo "Waiting for Railway database..."
+sleep 15
+
+# Database connection test with Railway-specific retry logic
+echo "Testing Railway PostgreSQL connection..."
+max_attempts=30
 attempt=1
 
 while [ $attempt -le $max_attempts ]; do
-    echo "Database connection attempt $attempt/$max_attempts..."
+    echo "Railway DB connection attempt $attempt/$max_attempts..."
     
     if python -c "
 import os
@@ -25,31 +29,34 @@ django.setup()
 from django.db import connection
 try:
     cursor = connection.cursor()
-    cursor.execute('SELECT 1')
+    cursor.execute('SELECT version()')
+    db_version = cursor.fetchone()[0]
     cursor.close()
-    print('✓ Database connection successful')
+    print(f'✓ Railway PostgreSQL connected: {db_version[:50]}...')
 except Exception as e:
-    print(f'✗ Database connection failed: {e}')
+    print(f'✗ Railway connection failed: {e}')
     sys.exit(1)
 "; then
-        echo "✓ Database is ready!"
+        echo "✓ Railway database is ready!"
         break
     fi
     
     if [ $attempt -eq $max_attempts ]; then
-        echo "✗ Database connection failed after $max_attempts attempts"
-        echo "Please check your database service status in Render dashboard"
+        echo "✗ Railway database connection failed after $max_attempts attempts"
+        echo "Check Railway dashboard - database may be paused or credentials changed"
         exit 1
     fi
     
-    # Progressive backoff: 2s, 4s, 8s, 16s, then 30s
-    if [ $attempt -le 4 ]; then
-        sleep_time=$((2 ** $attempt))
+    # Railway-specific backoff: shorter intervals
+    if [ $attempt -le 3 ]; then
+        sleep_time=5
+    elif [ $attempt -le 10 ]; then
+        sleep_time=10
     else
-        sleep_time=30
+        sleep_time=20
     fi
     
-    echo "Waiting ${sleep_time}s before next attempt..."
+    echo "Retrying in ${sleep_time}s..."
     sleep $sleep_time
     attempt=$((attempt + 1))
 done
@@ -63,9 +70,9 @@ echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
 echo "Starting Gunicorn server..."
-exec python -m gunicorn visitor_management.wsgi:application \
-  --bind 0.0.0.0:"${PORT:-8000}" \
-  --workers "${WEB_CONCURRENCY:-4}" \
+exec gunicorn visitor_management.wsgi:application \
+  --bind 0.0.0.0:$PORT \
+  --workers ${WEB_CONCURRENCY:-4} \
   --timeout 120 \
   --max-requests 1000 \
   --max-requests-jitter 100

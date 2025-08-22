@@ -73,7 +73,7 @@ DATABASES = {
     }
 }
 
-# Use PostgreSQL on Render
+# Use PostgreSQL on Render/Railway
 if 'RENDER' in os.environ or 'DATABASE_URL' in os.environ:
     import dj_database_url
     
@@ -88,15 +88,18 @@ if 'RENDER' in os.environ or 'DATABASE_URL' in os.environ:
     # Ensure PostgreSQL is used
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
     
-    # Enhanced connection settings for reliability
+    # Railway-optimized connection settings
     DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 10,     # Increased timeout
+        'connect_timeout': 30,     # Extended timeout for Railway
         'keepalives': 1,           # Enable TCP keep-alive
-        'keepalives_idle': 600,    # Wait 10 minutes before sending keepalive
-        'keepalives_interval': 30, # Send keepalive every 30 seconds
+        'keepalives_idle': 30,     # Shorter idle time for Railway
+        'keepalives_interval': 10, # More frequent keepalives
         'keepalives_count': 3,     # Close after 3 failed keepalives
         'sslmode': 'prefer',       # Prefer SSL but don't require it
     }
+    
+    # Force connection max age to 0 for Railway stability
+    DATABASES['default']['CONN_MAX_AGE'] = 0
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
