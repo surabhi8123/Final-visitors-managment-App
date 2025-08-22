@@ -73,53 +73,23 @@ DATABASES = {
     }
 }
 
-# Use PostgreSQL when DATABASE_URL is available (Render/Railway/Production)
-DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
-
-# Check if we're on Render and force PostgreSQL connection
-if os.environ.get('RENDER') or 'render.com' in os.environ.get('RENDER_EXTERNAL_URL', ''):
-    print("DEBUG: Detected Render environment")
+# Force PostgreSQL for production (when not in DEBUG mode)
+if not DEBUG:
+    print("DEBUG: Production environment detected, forcing PostgreSQL")
     
-    # If DATABASE_URL is not set, construct it manually for Render
+    # Get DATABASE_URL from environment or construct it
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
     if not DATABASE_URL:
-        print("DEBUG: DATABASE_URL not found, constructing manually for Render")
-        # Use Render's internal database connection
-        DATABASE_URL = f"postgresql://visitor_user@visitor-management-db:5432/visitor_management"
+        print("DEBUG: No DATABASE_URL found, constructing for Render")
+        # Construct DATABASE_URL for Render PostgreSQL service
+        DATABASE_URL = "postgresql://visitor_user@visitor-management-db:5432/visitor_management"
     
     print(f"DEBUG: Using DATABASE_URL: {DATABASE_URL}")
     
     import dj_database_url
     
-    # Parse database configuration from $DATABASE_URL
-    DATABASES['default'] = dj_database_url.config(
-        default=DATABASE_URL,
-        conn_max_age=0,  # Disable connection pooling to avoid stale connections
-        conn_health_checks=True,
-        ssl_require=False  # Let dj_database_url handle SSL automatically
-    )
-    
-    # Ensure PostgreSQL is used
-    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
-    
-    # Optimized connection settings for cloud databases
-    DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 30,     # Extended timeout
-        'keepalives': 1,           # Enable TCP keep-alive
-        'keepalives_idle': 30,     # Shorter idle time
-        'keepalives_interval': 10, # More frequent keepalives
-        'keepalives_count': 3,     # Close after 3 failed keepalives
-        'sslmode': 'prefer',       # Prefer SSL but don't require it
-    }
-    
-    # Force connection max age to 0 for stability
-    DATABASES['default']['CONN_MAX_AGE'] = 0
-    
-    print(f"DEBUG: Final database config: {DATABASES['default']}")
-
-elif DATABASE_URL:
-    print(f"DEBUG: Using DATABASE_URL from environment: {DATABASE_URL}")
-    import dj_database_url
-    
+    # Parse database configuration
     DATABASES['default'] = dj_database_url.config(
         default=DATABASE_URL,
         conn_max_age=0,
@@ -127,11 +97,24 @@ elif DATABASE_URL:
         ssl_require=False
     )
     
+    # Ensure PostgreSQL engine
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+    
+    # Connection settings for cloud databases
+    DATABASES['default']['OPTIONS'] = {
+        'connect_timeout': 30,
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 3,
+        'sslmode': 'prefer',
+    }
+    
     DATABASES['default']['CONN_MAX_AGE'] = 0
     
+    print(f"DEBUG: Final database config: {DATABASES['default']}")
 else:
-    print("DEBUG: No database URL found, using SQLite")
+    print("DEBUG: Development mode, using SQLite")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
