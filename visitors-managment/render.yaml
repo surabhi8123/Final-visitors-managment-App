@@ -13,10 +13,6 @@ services:
         fromDatabase:
           name: visitor-management-db
           property: connectionString
-      - key: POSTGRES_URL
-        fromDatabase:
-          name: visitor-management-db
-          property: connectionString
       - key: RENDER
         value: "1"
       - key: DISABLE_COLLECTSTATIC
