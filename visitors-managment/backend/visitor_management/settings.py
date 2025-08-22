@@ -73,48 +73,57 @@ DATABASES = {
     }
 }
 
-# Force PostgreSQL for production (when not in DEBUG mode)
-if not DEBUG:
-    print("DEBUG: Production environment detected, forcing PostgreSQL")
-    
-    # Get DATABASE_URL from environment or construct it
-    DATABASE_URL = os.environ.get('DATABASE_URL')
+# Always check for PostgreSQL first, regardless of DEBUG setting
+DATABASE_URL = os.environ.get('DATABASE_URL')
+print(f"DEBUG: DATABASE_URL from environment: {DATABASE_URL}")
+print(f"DEBUG: DEBUG setting: {DEBUG}")
+
+# Force PostgreSQL configuration for Render deployment
+# Override the default SQLite configuration
+if True:  # Always try PostgreSQL first
+    print("DEBUG: Attempting PostgreSQL configuration")
     
     if not DATABASE_URL:
         print("DEBUG: No DATABASE_URL found, constructing for Render")
-        # Construct DATABASE_URL for Render PostgreSQL service
+        # Use Render's internal database connection format
         DATABASE_URL = "postgresql://visitor_user@visitor-management-db:5432/visitor_management"
     
     print(f"DEBUG: Using DATABASE_URL: {DATABASE_URL}")
     
-    import dj_database_url
-    
-    # Parse database configuration
-    DATABASES['default'] = dj_database_url.config(
-        default=DATABASE_URL,
-        conn_max_age=0,
-        conn_health_checks=True,
-        ssl_require=False
-    )
-    
-    # Ensure PostgreSQL engine
-    DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
-    
-    # Connection settings for cloud databases
-    DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 30,
-        'keepalives': 1,
-        'keepalives_idle': 30,
-        'keepalives_interval': 10,
-        'keepalives_count': 3,
-        'sslmode': 'prefer',
-    }
-    
-    DATABASES['default']['CONN_MAX_AGE'] = 0
-    
-    print(f"DEBUG: Final database config: {DATABASES['default']}")
-else:
-    print("DEBUG: Development mode, using SQLite")
+    try:
+        import dj_database_url
+        
+        # Parse database configuration
+        db_config = dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=0,
+            conn_health_checks=True,
+            ssl_require=False
+        )
+        
+        # Override the default database configuration
+        DATABASES['default'] = db_config
+        
+        # Ensure PostgreSQL engine
+        DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+        
+        # Connection settings for cloud databases
+        DATABASES['default']['OPTIONS'] = {
+            'connect_timeout': 30,
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 3,
+            'sslmode': 'prefer',
+        }
+        
+        DATABASES['default']['CONN_MAX_AGE'] = 0
+        
+        print(f"DEBUG: PostgreSQL config applied: {DATABASES['default']}")
+        
+    except Exception as e:
+        print(f"DEBUG: PostgreSQL configuration failed: {e}")
+        print("DEBUG: Falling back to SQLite")
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
