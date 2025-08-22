@@ -80,21 +80,22 @@ if 'RENDER' in os.environ or 'DATABASE_URL' in os.environ:
     # Parse database configuration from $DATABASE_URL
     DATABASES['default'] = dj_database_url.config(
         default='postgresql://postgres:postgres@localhost/visitor_management',
-        conn_max_age=600,
+        conn_max_age=0,  # Disable connection pooling to avoid stale connections
         conn_health_checks=True,
-        ssl_require=True
+        ssl_require=False  # Let dj_database_url handle SSL automatically
     )
     
     # Ensure PostgreSQL is used
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
     
-    # Add connection timeout and retry settings
+    # Enhanced connection settings for reliability
     DATABASES['default']['OPTIONS'] = {
-        'connect_timeout': 5,  # 5 seconds connection timeout
-        'keepalives': 1,       # Enable TCP keep-alive
-        'keepalives_idle': 30, # Idle time before sending keepalive
-        'keepalives_interval': 5,  # Interval between keepalives
-        'keepalives_count': 5,     # Number of keepalives before closing
+        'connect_timeout': 10,     # Increased timeout
+        'keepalives': 1,           # Enable TCP keep-alive
+        'keepalives_idle': 600,    # Wait 10 minutes before sending keepalive
+        'keepalives_interval': 30, # Send keepalive every 30 seconds
+        'keepalives_count': 3,     # Close after 3 failed keepalives
+        'sslmode': 'prefer',       # Prefer SSL but don't require it
     }
 
 # Password validation
